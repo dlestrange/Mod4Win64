@@ -1,0 +1,8 @@
+# Build directories and local IDE settings
+build/
+out/
+.vs/
+CMakeUserPresets.json
+*.user
+*.suo
+.DS_Store
