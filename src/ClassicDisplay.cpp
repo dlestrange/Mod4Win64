@@ -43,20 +43,24 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(12, 83, "--:--       --  of   --");
     p.drawText(264, 60, "Pattern");
     p.drawText(264, 82, "-- of --");
-    p.drawText(424, 24, "48kHz 16Bit");
-    p.drawText(424, 42, "STEREO");
-    p.drawText(424, 61, state_.left(16).toUpper());
-    p.drawText(424, 80, nonzero_ ? "PCM ACTIVE" : "PCM IDLE");
-    // The PUMP column is deliberately graphic, not dependent on an installed font.
-    const QString pump = "PUMP";
-    const QColor pumpColors[] = {QColor("#f34221"),QColor("#dfe323"),QColor("#44df4e"),QColor("#e2333a")};
-    QFont pumpFont("Arial", 12, QFont::Black);
-    p.setFont(pumpFont);
-    for (int i=0; i<4; ++i) {
-        p.setPen(pumpColors[i]);
-        p.drawText(583, 19+i*16, QString(pump[i]));
+    p.drawText(424, 18, "48kHz 16Bit");
+    p.drawText(424, 35, "STEREO / SURR");
+    p.drawText(424, 52, "CH: -- BPM: ---");
+    p.drawText(424, 68, state_.left(16).toUpper());
+    p.drawText(424, 83, nonzero_ ? "AUDIO ACTIVE" : "AUDIO IDLE");
+    // PREAMP is a user-adjustable gain control in the original.
+    // Graphic and 0 dB label only for now; do not imply gain is implemented.
+    const QString preamp = "PREAMP";
+    const QColor preampColors[] = {
+        QColor("#ff3a23"), QColor("#efbd26"), QColor("#45e354"),
+        QColor("#45e354"), QColor("#efbd26"), QColor("#e63537") };
+    QFont ampFont("Arial", 9, QFont::Black);
+    p.setFont(ampFont);
+    for (int i = 0; i < preamp.size(); ++i) {
+        p.setPen(preampColors[i]);
+        p.drawText(584, 14 + i * 11, QString(preamp[i]));
     }
     p.setPen(green);
     p.setFont(small);
-    p.drawText(582, 88, "-0dB");
+    p.drawText(583, 89, "0dB");
 }
