@@ -1,4 +1,4 @@
-#include "PlayerWindow.h"
+#include "ClassicWindow.h"
 #include <QApplication>
 #include <QStyleFactory>
 
@@ -7,8 +7,7 @@ int main(int argc, char* argv[]) {
     app.setApplicationName("Mod4Win64");
     app.setOrganizationName("Mod4Win64");
     app.setStyle(QStyleFactory::create("Fusion"));
-
-    PlayerWindow window;
-    window.show();
+    ClassicPlayer player;
+    player.show();
     return app.exec();
 }
