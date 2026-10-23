@@ -12,6 +12,7 @@ public:
  bool load(const QString& path, QString* message);
  void play();
  void pauseResume();
+ void restart();
  void stop();
  bool isPlaying() const;
  bool isPaused() const;
@@ -25,12 +26,14 @@ private:
  using CreateFn = void*(*)(const void*, size_t, void(*)(const char*,void*), void*, int(*)(int,void*), void*, int*, const char**, const void*);
  using ReadFn = size_t(*)(void*, int32_t, size_t, int16_t*);
  using DestroyFn = void(*)(void*);
+ using SeekFn = double(*)(void*, double);
  using MetadataFn = char*(*)(void*, const char*);
  using FreeStringFn = void(*)(char*);
  QLibrary library_;
  CreateFn create_=nullptr;
  ReadFn read_=nullptr;
  DestroyFn destroy_=nullptr;
+ SeekFn seek_=nullptr;
  MetadataFn metadata_=nullptr;
  FreeStringFn freeString_=nullptr;
  void* module_=nullptr;
