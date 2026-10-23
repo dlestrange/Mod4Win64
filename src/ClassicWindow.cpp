@@ -1,4 +1,5 @@
 #include "ClassicWindow.h"
+#include "ModuleAudio.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -187,6 +188,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
+    audio_ = new ModuleAudio(this);
     jukebox_ = new JukeboxWindow(this);
     info_ = new QDialog(this);
     info_->setWindowTitle("MOD4WIN [2.40] Module Info");
@@ -238,7 +240,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setup->setEnabled(false);
     connect(help, &QPushButton::clicked, this, [this] {
         QMessageBox::information(this, "Mod4Win64 v0.2",
-            "Classic interface prototype. Playlist selection works; playback and live meters are next.");
+            "Initial libopenmpt playback; live effects and complete transport controls are planned.");
     });
 
     title_ = led("SOLACE.S3M", this, 39);
@@ -255,8 +257,20 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
 
     auto* buttons = new QHBoxLayout();
     root->addLayout(buttons);
-    for (const QString& label : {"■", "▶", "Ⅱ", "|◀", "◀◀", "▶▶", "▶|"})
+    stopButton_ = actionButton("■", buttons, this);
+    playButton_ = actionButton("▶", buttons, this);
+    pauseButton_ = actionButton("Ⅱ", buttons, this);
+    for (const QString& label : {"|◀", "◀◀", "▶▶", "▶|"})
         actionButton(label, buttons, this)->setEnabled(false);
+    connect(stopButton_, &QPushButton::clicked, audio_, &ModuleAudio::stop);
+    connect(playButton_, &QPushButton::clicked, this, [this] {
+        if (audio_->isPaused()) audio_->pauseResume();
+        else audio_->play();
+    });
+    connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
+    connect(audio_, &ModuleAudio::stateChanged, this, [this](const QString& state) {
+        status_->setText("48 kHz  16 Bit  " + state);
+    });
     buttons->addSpacing(8);
     for (const QString& label : {"Shuffle", "Repeat", "Scan", "Time"})
         actionButton(label, buttons, this)->setEnabled(false);
@@ -270,7 +284,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     connect(effects, &QPushButton::clicked, this, [this] { setPanelVisible(effects_); });
     connect(jukebox_, &JukeboxWindow::trackChosen, this, &ClassicPlayer::chooseTrack);
 
-    auto* note = new QLabel("MOD4WIN64 0.2 - Classic UI prototype | Playback coming next", this);
+    auto* note = new QLabel("MOD4WIN64 0.3 - Initial libopenmpt playback | effects coming next", this);
     root->addWidget(note);
 }
 void ClassicPlayer::setPanelVisible(QWidget* panel) {
@@ -279,6 +293,11 @@ void ClassicPlayer::setPanelVisible(QWidget* panel) {
     panel->activateWindow();
 }
 void ClassicPlayer::chooseTrack(const QString& path) {
-    title_->setText(QFileInfo(path).fileName().toUpper());
-    status_->setText("MODULE SELECTED  |  NO AUDIO YET");
+    QString error;
+    if (!audio_->load(path, &error)) {
+        QMessageBox::warning(this, "Cannot open module", error);
+        return;
+    }
+    title_->setText(audio_->moduleTitle().toUpper());
+    audio_->play();
 }
