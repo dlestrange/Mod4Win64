@@ -1,6 +1,8 @@
 #include "ClassicWindow.h"
 #include "ModuleAudio.h"
 #include "ClassicDisplay.h"
+#include "SetupDialog.h"
+#include "EffectsCanvas.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -277,7 +279,7 @@ void JukeboxWindow::updateCount() {
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.6");
-    setFixedSize(650, 208);
+    setFixedSize(650, 225);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
@@ -303,24 +305,37 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     effects_->setWindowFlags(Qt::Window);
     effects_->setStyleSheet(classicStyle);
     effects_->resize(450, 370);
+    effects_->resize(285, 230);
     auto* effectsLayout = new QVBoxLayout(effects_);
-    effectsLayout->addWidget(new QLabel("Effects     Arpeggio   Porta   Vibrato   Volume   Note", effects_));
-    auto* grid = new QTableWidget(16, 3, effects_);
-    grid->setHorizontalHeaderLabels({"Channel", "Effect activity", "Note"});
-    grid->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    grid->verticalHeader()->hide();
-    grid->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    for (int i = 0; i < 16; ++i) {
-        grid->setItem(i, 0, new QTableWidgetItem(QString::number(i + 1)));
-        grid->setItem(i, 1, new QTableWidgetItem("................"));
-        grid->setItem(i, 2, new QTableWidgetItem("---"));
-    }
-    effectsLayout->addWidget(grid);
-    effectsLayout->addWidget(new QLabel("Live visualisation awaits libopenmpt integration.", effects_));
+    effectsLayout->setContentsMargins(6,6,6,6);
+    effectsLayout->addWidget(new EffectsCanvas(effects_));
+    effectsLayout->addWidget(new QLabel("Static rendering scaffold — live effects not yet connected.", effects_));
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(5, 3, 5, 4);
     root->setSpacing(2);
+    auto* header = new QHBoxLayout();
+    header->setSpacing(2);
+    auto* appName = new QLabel("MOD4WIN64", this);
+    appName->setStyleSheet("font:bold 10px Tahoma;color:#333;");
+    header->addWidget(appName);
+    header->addStretch();
+    auto* setupButton = new QPushButton("Setup", this);
+    auto* helpButton = new QPushButton("Help", this);
+    setupButton->setFixedHeight(20);
+    helpButton->setFixedHeight(20);
+    header->addWidget(setupButton);
+    header->addWidget(helpButton);
+    root->addLayout(header);
+    auto* setupDialog = new SetupDialog(this);
+    connect(setupButton, &QPushButton::clicked, setupDialog, &QDialog::show);
+    connect(helpButton, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(this, "Mod4Win64", 
+            "Mod4Win64 is a revival of the classic Mod4Win player.\\n"
+            "Original developers: Kay Bruns, Uwe Zaenker and Jens Puchert.\\n"
+            "Playback is provided by libopenmpt. Classic effects and surround are under development.");
+    });
+
 
     // Single painted LCD canvas keeps the original relative dimensions together.
     display_ = new ClassicDisplay(this);
