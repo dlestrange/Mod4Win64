@@ -11,6 +11,8 @@ qt_add_executable(Mod4Win64 WIN32
     src/main.cpp
     src/ClassicWindow.cpp
     src/ClassicWindow.h
+    src/ClassicDisplay.cpp
+    src/ClassicDisplay.h
     src/ModuleAudio.cpp
     src/ModuleAudio.h
 )
