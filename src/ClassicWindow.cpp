@@ -330,7 +330,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     buttons->setContentsMargins(0, 0, 0, 0);
     buttons->setSpacing(1);
     root->addLayout(buttons);
-    auto* transport = [this, buttons](const QString& symbol, bool enabled = true) {
+    auto transport = [this, buttons](const QString& symbol, bool enabled = true) {
         auto* button = actionButton(symbol, buttons, this);
         button->setFixedHeight(27);
         button->setStyleSheet("QPushButton {color:#008e21;font:bold 17px Arial;"
@@ -345,7 +345,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     transport("◀◀", false);
     transport("▶▶", false);
     transport("▶|", false);
-    auto* command = [this, buttons](const QString& name) {
+    auto command = [this, buttons](const QString& name) {
         auto* button = actionButton(name, buttons, this);
         button->setFixedHeight(27);
         return button;
