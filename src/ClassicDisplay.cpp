@@ -44,7 +44,7 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(264, 60, "Pattern");
     p.drawText(264, 82, "-- of --");
     p.drawText(424, 18, "48kHz 16Bit");
-    p.drawText(424, 35, "STEREO / SURR");
+    p.drawText(424, 35, "STEREO");
     p.drawText(424, 52, "CH: -- BPM: ---");
     p.drawText(424, 68, state_.left(16).toUpper());
     p.drawText(424, 83, nonzero_ ? "AUDIO ACTIVE" : "AUDIO IDLE");
