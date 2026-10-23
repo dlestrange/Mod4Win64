@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <QAudioSink>
 #include <memory>
+#include <atomic>
 class ModuleAudio final : public QIODevice {
  Q_OBJECT
 public:
@@ -17,7 +18,10 @@ public:
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
+ bool isSequential() const override { return true; }
  qint64 readData(char* data, qint64 maxlen) override;
+ quint64 decodedFrames() const { return decodedFrames_.load(); }
+ quint64 nonzeroSamples() const { return nonzeroSamples_.load(); }
  qint64 writeData(const char*, qint64) override { return -1; }
 signals:
  void stateChanged(const QString& state);
@@ -42,4 +46,6 @@ private:
  bool playing_=false;
  bool paused_=false;
  bool finished_=false;
+ std::atomic<quint64> decodedFrames_{0};
+ std::atomic<quint64> nonzeroSamples_{0};
 };
