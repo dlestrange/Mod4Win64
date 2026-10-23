@@ -3,6 +3,7 @@
 #include <QLibrary>
 #include <QByteArray>
 #include <QAudioSink>
+#include <QTimer>
 #include <memory>
 #include <atomic>
 class ModuleAudio final : public QIODevice {
@@ -14,6 +15,7 @@ public:
  void play();
  void pauseResume();
  void restart();
+ void pumpAudio();
  void stop();
  bool isPlaying() const;
  bool isPaused() const;
@@ -43,6 +45,9 @@ private:
  void* module_=nullptr;
  QString title_;
  std::unique_ptr<QAudioSink> sink_;
+ QIODevice* outputDevice_ = nullptr;
+ QTimer pumpTimer_;
+ QByteArray pending_;
  bool playing_=false;
  bool paused_=false;
  bool finished_=false;
