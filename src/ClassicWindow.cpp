@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QAbstractItemView>
 #include <QDir>
+#include <QComboBox>
+#include <QStorageInfo>
 #include <QFileInfo>
 #include <QFileSystemModel>
 #include <QGridLayout>
@@ -82,6 +84,12 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     auto* addAll = actionButton("All  >>", fileActions, this);
 
     dirColumn->addWidget(new QLabel("Directories", this));
+    auto* drives = new QComboBox(this);
+    drives->setToolTip("Choose a local, removable or mapped network drive");
+    dirColumn->addWidget(drives);
+    auto* pathLabel = new QLabel(this);
+    pathLabel->setWordWrap(true);
+    dirColumn->addWidget(pathLabel);
     model_ = new QFileSystemModel(this);
     model_->setFilter(QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Drives);
     model_->setRootPath(QDir::rootPath());
@@ -89,7 +97,7 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     directories_->setModel(model_);
     for (int c = 1; c < model_->columnCount(); ++c) directories_->hideColumn(c);
     directories_->setHeaderHidden(true);
-    directories_->setRootIndex(model_->index(QDir::homePath()));
+    // Drive-specific tree roots are selected below.
     dirColumn->addWidget(directories_, 1);
     auto* up = actionButton("Parent directory", dirColumn, this);
 
@@ -117,16 +125,31 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
             item->setData(Qt::UserRole, info.absoluteFilePath());
         }
     };
-    connect(directories_, &QTreeView::clicked, this, [this, refreshFiles](const QModelIndex& idx) {
-        const QString path = model_->filePath(idx);
-        if (QFileInfo(path).isDir()) refreshFiles(path);
+    auto selectFolder = [this, refreshFiles, pathLabel](const QString& path) {
+        const QModelIndex idx = model_->index(path);
+        if (!idx.isValid()) return;
+        directories_->setCurrentIndex(idx);
+        directories_->scrollTo(idx);
+        pathLabel->setText(QDir::toNativeSeparators(path));
+        refreshFiles(path);
+        updateCount();
+    };
+    connect(drives, &QComboBox::currentIndexChanged, this, [this, drives, selectFolder](int index) {
+        if (index < 0) return;
+        const QString path = drives->itemData(index).toString();
+        directories_->setRootIndex(model_->index(path));
+        selectFolder(path);
     });
-    connect(up, &QPushButton::clicked, this, [this, refreshFiles] {
+    connect(directories_, &QTreeView::clicked, this, [this, selectFolder](const QModelIndex& idx) {
+        const QString path = model_->filePath(idx);
+        if (QFileInfo(path).isDir()) selectFolder(path);
+    });
+    connect(up, &QPushButton::clicked, this, [this, drives, selectFolder] {
+        const QString root = drives->currentData().toString();
         const QModelIndex idx = directories_->currentIndex();
-        QString current = idx.isValid() ? model_->filePath(idx) : QDir::homePath();
-        current = QFileInfo(current).dir().absolutePath();
-        directories_->setCurrentIndex(model_->index(current));
-        refreshFiles(current);
+        const QString current = idx.isValid() ? model_->filePath(idx) : root;
+        if (QDir::cleanPath(current).compare(QDir::cleanPath(root), Qt::CaseInsensitive) == 0) return;
+        selectFolder(QFileInfo(current).dir().absolutePath());
     });
     connect(add, &QPushButton::clicked, this, &JukeboxWindow::addSelectedFiles);
     connect(addAll, &QPushButton::clicked, this, &JukeboxWindow::addSelectedDirectoryFiles);
@@ -138,9 +161,28 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
         emit trackChosen(item->data(Qt::UserRole).toString());
     });
 
-    const QModelIndex home = model_->index(QDir::homePath());
-    directories_->setCurrentIndex(home);
-    refreshFiles(QDir::homePath());
+    // Populate a selectable list of filesystem roots (e.g. C:, D:, USB volumes).
+    for (const QFileInfo& drive : QDir::drives()) {
+        const QString path = drive.absoluteFilePath();
+        const QStorageInfo storage(path);
+        QString label = QDir::toNativeSeparators(path);
+        if (!storage.name().isEmpty()) label += " (" + storage.name() + ")";
+        drives->addItem(label, path);
+    }
+    const QString home = QDir::homePath();
+    int initial = 0;
+    for (int i = 0; i < drives->count(); ++i) {
+        if (home.startsWith(drives->itemData(i).toString(), Qt::CaseInsensitive)) {
+            initial = i;
+            break;
+        }
+    }
+    if (drives->count() > 0) {
+        drives->setCurrentIndex(initial);
+        const QString rootPath = drives->currentData().toString();
+        directories_->setRootIndex(model_->index(rootPath));
+        selectFolder(home.startsWith(rootPath, Qt::CaseInsensitive) ? home : rootPath);
+    }
     updateCount();
 }
 
