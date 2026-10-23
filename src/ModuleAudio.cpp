@@ -69,6 +69,8 @@ void ModuleAudio::play() {
  sink_=std::make_unique<QAudioSink>(device,fmt);
  sink_->setBufferSize(48000 * 2 * 2 / 4);
  finished_=false;
+ decodedFrames_=0;
+ nonzeroSamples_=0;
  open(QIODevice::ReadOnly);
  playing_=true; paused_=false;
  connect(sink_.get(), &QAudioSink::stateChanged, this, [this](QAudio::State state) {
@@ -112,5 +114,12 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
    finished_=true;
    QMetaObject::invokeMethod(this,[this] { emit endOfModule(); stop(); },Qt::QueuedConnection);
  }
+ decodedFrames_.fetch_add(produced);
+ quint64 audible = 0;
+ const auto* samples = reinterpret_cast<const int16_t*>(data);
+ for (size_t i = 0; i < produced * 2; ++i) {
+     if (samples[i] != 0) ++audible;
+ }
+ nonzeroSamples_.fetch_add(audible);
  return static_cast<qint64>(produced*4);
 }
