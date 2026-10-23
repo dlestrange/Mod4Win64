@@ -8,6 +8,8 @@ class QFileSystemModel;
 class QTreeView;
 class QTableWidget;
 class QTimer;
+class ModuleAudio;
+class QPushButton;
 
 class JukeboxWindow final : public QDialog {
     Q_OBJECT
@@ -44,4 +46,8 @@ private:
     JukeboxWindow* jukebox_ = nullptr;
     QDialog* info_ = nullptr;
     QDialog* effects_ = nullptr;
+    ModuleAudio* audio_ = nullptr;
+    QPushButton* playButton_ = nullptr;
+    QPushButton* pauseButton_ = nullptr;
+    QPushButton* stopButton_ = nullptr;
 };
