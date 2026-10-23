@@ -277,7 +277,7 @@ void JukeboxWindow::updateCount() {
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.6");
-    setFixedSize(650, 170);
+    setFixedSize(650, 208);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
@@ -326,13 +326,19 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     display_ = new ClassicDisplay(this);
     root->addWidget(display_, 1);
 
-    auto* buttons = new QHBoxLayout();
-    buttons->setContentsMargins(0, 0, 0, 0);
-    buttons->setSpacing(1);
-    root->addLayout(buttons);
-    auto transport = [this, buttons](const QString& symbol, bool enabled = true) {
-        auto* button = actionButton(symbol, buttons, this);
-        button->setFixedHeight(27);
+    // Original Mod4Win layout: seven transport buttons on the left;
+    // two rows of four command buttons on the right.
+    auto* controls = new QHBoxLayout();
+    controls->setSpacing(3);
+    controls->setContentsMargins(0, 0, 0, 0);
+    root->addLayout(controls);
+    auto* transportRow = new QHBoxLayout();
+    transportRow->setSpacing(1);
+    controls->addLayout(transportRow, 7);
+    auto transport = [this, transportRow](const QString& symbol, bool enabled = true) {
+        auto* button = actionButton(symbol, transportRow, this);
+        button->setFixedHeight(25);
+        button->setMinimumWidth(28);
         button->setStyleSheet("QPushButton {color:#008e21;font:bold 17px Arial;"
                               "background:#c0c0c0;border:2px outset #eee;padding:0;}");
         button->setEnabled(enabled);
@@ -345,17 +351,27 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     transport("◀◀", false);
     transport("▶▶", false);
     transport("▶|", false);
-    auto command = [this, buttons](const QString& name) {
-        auto* button = actionButton(name, buttons, this);
-        button->setFixedHeight(27);
+
+    auto* commandGrid = new QGridLayout();
+    commandGrid->setContentsMargins(0, 0, 0, 0);
+    commandGrid->setHorizontalSpacing(1);
+    commandGrid->setVerticalSpacing(1);
+    controls->addLayout(commandGrid, 4);
+    auto command = [this, commandGrid](const QString& name, int row, int col) {
+        auto* button = new QPushButton(name, this);
+        button->setFixedHeight(23);
+        button->setMinimumWidth(39);
+        commandGrid->addWidget(button, row, col);
         return button;
     };
-    for (const QString& label : {"Shuffle", "Repeat", "Scan", "Time"})
-        command(label)->setEnabled(false);
-    auto* open = command("Open");
-    auto* file = command("File");
-    auto* info = command("Info");
-    auto* effects = command("Effects");
+    command("Shuffle",0,0)->setEnabled(false);
+    command("Repeat",0,1)->setEnabled(false);
+    command("Scan",0,2)->setEnabled(false);
+    command("Time",0,3)->setEnabled(false);
+    auto* open = command("Open",1,0);
+    auto* file = command("File",1,1);
+    auto* info = command("Info",1,2);
+    auto* effects = command("Effects",1,3);
     connect(stopButton_, &QPushButton::clicked, audio_, &ModuleAudio::stop);
     connect(playButton_, &QPushButton::clicked, audio_, &ModuleAudio::play);
     connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
