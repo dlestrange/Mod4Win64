@@ -22,6 +22,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
+#include <QTimer>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -379,6 +380,14 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
 
     auto* note = new QLabel("MOD4WIN64 0.3 - Initial libopenmpt playback | effects coming next", this);
     root->addWidget(note);
+    auto* diagnosticTimer = new QTimer(this);
+    diagnosticTimer->setInterval(1000);
+    connect(diagnosticTimer, &QTimer::timeout, this, [this, note] {
+        if (!audio_->isPlaying()) return;
+        note->setText(QString("Decoded frames: %1 | Nonzero samples: %2 | Effects display pending")
+            .arg(audio_->decodedFrames()).arg(audio_->nonzeroSamples()));
+    });
+    diagnosticTimer->start();
 }
 void ClassicPlayer::setPanelVisible(QWidget* panel) {
     panel->show();
