@@ -1,5 +1,6 @@
 #include "ClassicWindow.h"
 #include "ModuleAudio.h"
+#include "ClassicDisplay.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -275,8 +276,8 @@ void JukeboxWindow::updateCount() {
 }
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
-    setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.3");
-    setFixedSize(846, 208);
+    setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.6");
+    setFixedSize(650, 170);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
@@ -318,74 +319,60 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     effectsLayout->addWidget(new QLabel("Live visualisation awaits libopenmpt integration.", effects_));
 
     auto* root = new QVBoxLayout(this);
-    root->setContentsMargins(6, 6, 6, 6);
-    root->setSpacing(4);
+    root->setContentsMargins(5, 3, 5, 4);
+    root->setSpacing(2);
 
-    auto* top = new QHBoxLayout();
-    root->addLayout(top);
-    top->addWidget(new QLabel("MOD4WIN [2.40 Last Beta]", this));
-    top->addStretch();
-    auto* mixer = actionButton("Mixer", top, this);
-    auto* setup = actionButton("Setup", top, this);
-    auto* help = actionButton("Help", top, this);
-    mixer->setEnabled(false);
-    setup->setEnabled(false);
-    connect(help, &QPushButton::clicked, this, [this] {
-        QMessageBox::information(this, "Mod4Win64 v0.2",
-            "Initial libopenmpt playback; live effects and complete transport controls are planned.");
-    });
-
-    title_ = led("SOLACE.S3M", this, 39);
-    title_->setText("NO MODULE LOADED");
-    root->addWidget(title_);
-    auto* meters = new QHBoxLayout();
-    root->addLayout(meters);
-    song_ = led("SONG  --:-- / --:--", this);
-    pattern_ = led("PATTERN  -- / --", this);
-    status_ = led("44 kHz    16 Bit     STOPPED", this);
-    meters->addWidget(song_, 4);
-    meters->addWidget(pattern_, 3);
-    meters->addWidget(status_, 4);
+    // Single painted LCD canvas keeps the original relative dimensions together.
+    display_ = new ClassicDisplay(this);
+    root->addWidget(display_, 1);
 
     auto* buttons = new QHBoxLayout();
+    buttons->setContentsMargins(0, 0, 0, 0);
+    buttons->setSpacing(1);
     root->addLayout(buttons);
-    stopButton_ = actionButton("■", buttons, this);
-    stopButton_->setToolTip("Stop playback and rewind to beginning");
-    playButton_ = actionButton("▶", buttons, this);
-    playButton_->setToolTip("Play / resume / restart current module");
-    pauseButton_ = actionButton("Ⅱ", buttons, this);
-    pauseButton_->setToolTip("Toggle pause and resume");
-    for (const QString& label : {"|◀", "◀◀", "▶▶", "▶|"})
-        actionButton(label, buttons, this)->setEnabled(false);
-    connect(stopButton_, &QPushButton::clicked, audio_, &ModuleAudio::stop);
-    connect(playButton_, &QPushButton::clicked, this, [this] {
-        audio_->play();
-    });
-    connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
-    connect(audio_, &ModuleAudio::stateChanged, this, [this](const QString& state) {
-        status_->setText("48 kHz  16 Bit  " + state);
-    });
-    buttons->addSpacing(8);
+    auto* transport = [this, buttons](const QString& symbol, bool enabled = true) {
+        auto* button = actionButton(symbol, buttons, this);
+        button->setFixedHeight(27);
+        button->setStyleSheet("QPushButton {color:#008e21;font:bold 17px Arial;"
+                              "background:#c0c0c0;border:2px outset #eee;padding:0;}");
+        button->setEnabled(enabled);
+        return button;
+    };
+    stopButton_ = transport("■");
+    playButton_ = transport("▶");
+    pauseButton_ = transport("Ⅱ");
+    transport("|◀", false);
+    transport("◀◀", false);
+    transport("▶▶", false);
+    transport("▶|", false);
+    auto* command = [this, buttons](const QString& name) {
+        auto* button = actionButton(name, buttons, this);
+        button->setFixedHeight(27);
+        return button;
+    };
     for (const QString& label : {"Shuffle", "Repeat", "Scan", "Time"})
-        actionButton(label, buttons, this)->setEnabled(false);
-    auto* open = actionButton("Open", buttons, this);
-    auto* file = actionButton("File", buttons, this);
-    auto* info = actionButton("Info", buttons, this);
-    auto* effects = actionButton("Effects", buttons, this);
+        command(label)->setEnabled(false);
+    auto* open = command("Open");
+    auto* file = command("File");
+    auto* info = command("Info");
+    auto* effects = command("Effects");
+    connect(stopButton_, &QPushButton::clicked, audio_, &ModuleAudio::stop);
+    connect(playButton_, &QPushButton::clicked, audio_, &ModuleAudio::play);
+    connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
+    connect(audio_, &ModuleAudio::stateChanged, display_, &ClassicDisplay::setState);
     connect(open, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
     connect(file, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
     connect(info, &QPushButton::clicked, this, [this] { setPanelVisible(info_); });
-    connect(effects, &QPushButton::clicked, this, [this] { setPanelVisible(effects_); });
+    connect(effects, &QPushButton::clicked, this, [this] {
+        if (effects_->isVisible()) effects_->hide();
+        else setPanelVisible(effects_);
+    });
     connect(jukebox_, &JukeboxWindow::trackChosen, this, &ClassicPlayer::chooseTrack);
 
-    auto* note = new QLabel("MOD4WIN64 0.3 - Initial libopenmpt playback | effects coming next", this);
-    root->addWidget(note);
     auto* diagnosticTimer = new QTimer(this);
     diagnosticTimer->setInterval(1000);
-    connect(diagnosticTimer, &QTimer::timeout, this, [this, note] {
-        if (!audio_->isPlaying()) return;
-        note->setText(QString("Decoded frames: %1 | Nonzero samples: %2 | Effects display pending")
-            .arg(audio_->decodedFrames()).arg(audio_->nonzeroSamples()));
+    connect(diagnosticTimer, &QTimer::timeout, this, [this] {
+        display_->setDiagnostics(audio_->decodedFrames(), audio_->nonzeroSamples());
     });
     diagnosticTimer->start();
 }
@@ -400,6 +387,6 @@ void ClassicPlayer::chooseTrack(const QString& path) {
         QMessageBox::warning(this, "Cannot open module", error);
         return;
     }
-    title_->setText(audio_->moduleTitle().toUpper());
+    display_->setTitle(audio_->moduleTitle().toUpper());
     audio_->play();
 }
