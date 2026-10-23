@@ -9,6 +9,7 @@ class QTreeView;
 class QTableWidget;
 class QTimer;
 class ModuleAudio;
+class ClassicDisplay;
 class QPushButton;
 
 class JukeboxWindow final : public QDialog {
@@ -43,6 +44,7 @@ private:
     QLabel* song_ = nullptr;
     QLabel* pattern_ = nullptr;
     QLabel* status_ = nullptr;
+    ClassicDisplay* display_ = nullptr;
     JukeboxWindow* jukebox_ = nullptr;
     QDialog* info_ = nullptr;
     QDialog* effects_ = nullptr;
