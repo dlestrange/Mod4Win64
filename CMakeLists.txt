@@ -13,6 +13,10 @@ qt_add_executable(Mod4Win64 WIN32
     src/ClassicWindow.h
     src/ClassicDisplay.cpp
     src/ClassicDisplay.h
+    src/SetupDialog.cpp
+    src/SetupDialog.h
+    src/EffectsCanvas.cpp
+    src/EffectsCanvas.h
     src/ModuleAudio.cpp
     src/ModuleAudio.h
 )
