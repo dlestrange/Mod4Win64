@@ -7,6 +7,9 @@
 #include <QComboBox>
 #include <QStorageInfo>
 #include <QFileInfo>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
 #include <QFileSystemModel>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -112,8 +115,13 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     auto* moveDown = actionButton("Down", queueActions, this);
     counter_ = new QLabel(this);
     root->addWidget(counter_);
-    auto* play = actionButton("Select module / Play (when audio engine is ready)", root, this);
-    play->setEnabled(false);
+    auto* bottom = new QHBoxLayout();
+    root->addLayout(bottom);
+    bottom->addStretch();
+    auto* ok = actionButton("OK", bottom, this);
+    auto* save = actionButton("Save", bottom, this);
+    auto* quit = actionButton("Quit", bottom, this);
+    auto* help = actionButton("Help", bottom, this);
 
     auto refreshFiles = [this](const QString& dir) {
         files_->clear();
@@ -159,6 +167,47 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     connect(files_, &QListWidget::itemDoubleClicked, this, [this] { addSelectedFiles(); });
     connect(queue_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
         emit trackChosen(item->data(Qt::UserRole).toString());
+        hide();
+    });
+    connect(ok, &QPushButton::clicked, this, [this] {
+        if (queue_->count() == 0) {
+            QMessageBox::information(this, "Playlist empty", "Add at least one module to the playlist first.");
+            return;
+        }
+        QListWidgetItem* selected = queue_->currentItem();
+        if (!selected) selected = queue_->item(0);
+        emit trackChosen(selected->data(Qt::UserRole).toString());
+        hide();
+    });
+    connect(save, &QPushButton::clicked, this, [this] {
+        if (queue_->count() == 0) {
+            QMessageBox::information(this, "Playlist empty", "Add modules before saving a playlist.");
+            return;
+        }
+        const QString filename = QFileDialog::getSaveFileName(
+            this, "Save jukebox playlist", QDir::homePath() + "/Mod4Win64.m3u",
+            "M3U playlists (*.m3u)");
+        if (filename.isEmpty()) return;
+        QFile output(filename);
+        if (!output.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QMessageBox::warning(this, "Cannot save playlist", output.errorString());
+            return;
+        }
+        QTextStream stream(&output);
+        stream << "#EXTM3U\n";
+        for (const QString& path : tracks()) stream << QDir::toNativeSeparators(path) << "\n";
+        output.close();
+        if (output.error() != QFile::NoError)
+            QMessageBox::warning(this, "Cannot save playlist", output.errorString());
+        else
+            QMessageBox::information(this, "Playlist saved", "Saved " + QString::number(queue_->count()) + " modules.");
+    });
+    connect(quit, &QPushButton::clicked, this, &QWidget::hide);
+    connect(help, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(this, "Jukebox Help",
+            "Choose a drive, browse folders, select modules and click Add >>.\n"
+            "Double-click a playlist entry or click OK to load and play it.\n"
+            "Save writes a standard M3U playlist. Quit closes the jukebox without deleting its entries.");
     });
 
     // Populate a selectable list of filesystem roots (e.g. C:, D:, USB volumes).
@@ -219,7 +268,7 @@ void JukeboxWindow::shiftCurrent(int offset) {
     queue_->setCurrentRow(dest);
 }
 void JukeboxWindow::updateCount() {
-    counter_->setText(QString("Filelist: %1    Playlist: %2 modules    (Audio not implemented yet)")
+    counter_->setText(QString("Filelist: %1    Playlist: %2 modules")
         .arg(files_->count()).arg(queue_->count()));
     emit queueUpdated(queue_->count());
 }
