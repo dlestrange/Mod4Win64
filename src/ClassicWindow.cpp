@@ -274,7 +274,7 @@ void JukeboxWindow::updateCount() {
 }
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
-    setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.2");
+    setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.3");
     setFixedSize(846, 208);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
@@ -349,14 +349,16 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* buttons = new QHBoxLayout();
     root->addLayout(buttons);
     stopButton_ = actionButton("■", buttons, this);
+    stopButton_->setToolTip("Stop playback and rewind to beginning");
     playButton_ = actionButton("▶", buttons, this);
+    playButton_->setToolTip("Play / resume / restart current module");
     pauseButton_ = actionButton("Ⅱ", buttons, this);
+    pauseButton_->setToolTip("Toggle pause and resume");
     for (const QString& label : {"|◀", "◀◀", "▶▶", "▶|"})
         actionButton(label, buttons, this)->setEnabled(false);
     connect(stopButton_, &QPushButton::clicked, audio_, &ModuleAudio::stop);
     connect(playButton_, &QPushButton::clicked, this, [this] {
-        if (audio_->isPaused()) audio_->pauseResume();
-        else audio_->play();
+        audio_->play();
     });
     connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
     connect(audio_, &ModuleAudio::stateChanged, this, [this](const QString& state) {
