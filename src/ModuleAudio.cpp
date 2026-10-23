@@ -7,7 +7,10 @@
 #include <cstring>
 #include <vector>
 
-ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {}
+ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {
+ pumpTimer_.setInterval(10);
+ connect(&pumpTimer_, &QTimer::timeout, this, &ModuleAudio::pumpAudio);
+}
 ModuleAudio::~ModuleAudio() { stop(); if (module_) destroy_(module_); }
 
 bool ModuleAudio::load(const QString& path, QString* message) {
@@ -71,8 +74,8 @@ void ModuleAudio::play() {
  finished_=false;
  decodedFrames_=0;
  nonzeroSamples_=0;
- open(QIODevice::ReadOnly);
  playing_=true; paused_=false;
+ pending_.clear();
  connect(sink_.get(), &QAudioSink::stateChanged, this, [this](QAudio::State state) {
      if (!sink_) return;
      if (state == QAudio::StoppedState && sink_->error() != QtAudio::NoError) {
@@ -80,11 +83,35 @@ void ModuleAudio::play() {
          QMetaObject::invokeMethod(this, [this, problem] { stop(); emit stateChanged(problem); }, Qt::QueuedConnection);
      }
  });
- sink_->start(this);
- if (sink_->error()!=QtAudio::NoError) {
+ outputDevice_ = sink_->start();
+ if (!outputDevice_ || sink_->error()!=QtAudio::NoError) {
    stop(); emit stateChanged("AUDIO OUTPUT ERROR"); return;
  }
+ pumpTimer_.start();
+ pumpAudio();
  emit stateChanged("PLAYING");
+}
+void ModuleAudio::pumpAudio() {
+ if (!sink_ || !outputDevice_ || !playing_ || paused_) return;
+ // In Qt push mode QAudioSink exposes a writable device; generate only as much PCM
+ // as its buffer can accept. Keep any partially written bytes for the next tick.
+ int available = sink_->bytesFree();
+ while (available >= 4) {
+   if (pending_.isEmpty()) {
+     const int bytes = qMin(available - (available % 4), 4096);
+     if (bytes <= 0) break;
+     QByteArray buffer(bytes, '\0');
+     const qint64 count = readData(buffer.data(), buffer.size());
+     if (count <= 0) break;
+     buffer.resize(static_cast<qsizetype>(count));
+     pending_ = std::move(buffer);
+   }
+   const qint64 written = outputDevice_->write(pending_.constData(),
+                  qMin(static_cast<qint64>(available), static_cast<qint64>(pending_.size())));
+   if (written <= 0) break;
+   pending_.remove(0, static_cast<qsizetype>(written));
+   available -= static_cast<int>(written);
+ }
 }
 void ModuleAudio::restart() {
  if (!module_) return;
@@ -94,11 +121,12 @@ void ModuleAudio::restart() {
 }
 void ModuleAudio::pauseResume() {
  if(!playing_ || !sink_) return;
- if(paused_) { sink_->resume(); paused_=false; emit stateChanged("PLAYING"); }
- else { sink_->suspend(); paused_=true; emit stateChanged("PAUSED"); }
+ if(paused_) { sink_->resume(); paused_=false; pumpTimer_.start(); emit stateChanged("PLAYING"); }
+ else { pumpTimer_.stop(); sink_->suspend(); paused_=true; emit stateChanged("PAUSED"); }
 }
 void ModuleAudio::stop() {
  playing_=false; paused_=false;
+ pumpTimer_.stop(); pending_.clear(); outputDevice_=nullptr;
  if(sink_) { sink_->stop(); sink_.reset(); }
  if(isOpen()) close();
  if (module_ && seek_) seek_(module_,0.0);
