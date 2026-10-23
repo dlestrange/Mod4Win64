@@ -23,6 +23,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    create_=reinterpret_cast<CreateFn>(library_.resolve("openmpt_module_create_from_memory2"));
    read_=reinterpret_cast<ReadFn>(library_.resolve("openmpt_module_read_interleaved_stereo"));
    destroy_=reinterpret_cast<DestroyFn>(library_.resolve("openmpt_module_destroy"));
+   seek_=reinterpret_cast<SeekFn>(library_.resolve("openmpt_module_set_position_seconds"));
    metadata_=reinterpret_cast<MetadataFn>(library_.resolve("openmpt_module_get_metadata"));
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
    if (!create_ || !read_ || !destroy_) {
@@ -53,7 +54,9 @@ bool ModuleAudio::load(const QString& path, QString* message) {
 }
 
 void ModuleAudio::play() {
- if (!module_ || playing_) return;
+ if (!module_) { emit stateChanged("NO MODULE LOADED"); return; }
+ if (paused_) { pauseResume(); return; }
+ if (playing_) { restart(); return; }
  QAudioFormat fmt;
  fmt.setSampleRate(48000);
  fmt.setChannelCount(2);
@@ -68,11 +71,24 @@ void ModuleAudio::play() {
  finished_=false;
  open(QIODevice::ReadOnly);
  playing_=true; paused_=false;
+ connect(sink_.get(), &QAudioSink::stateChanged, this, [this](QAudio::State state) {
+     if (!sink_) return;
+     if (state == QAudio::StoppedState && sink_->error() != QtAudio::NoError) {
+         const QString problem = QString("AUDIO ERROR %1").arg(static_cast<int>(sink_->error()));
+         QMetaObject::invokeMethod(this, [this, problem] { stop(); emit stateChanged(problem); }, Qt::QueuedConnection);
+     }
+ });
  sink_->start(this);
  if (sink_->error()!=QtAudio::NoError) {
    stop(); emit stateChanged("AUDIO OUTPUT ERROR"); return;
  }
  emit stateChanged("PLAYING");
+}
+void ModuleAudio::restart() {
+ if (!module_) return;
+ stop();
+ if (seek_) seek_(module_, 0.0);
+ play();
 }
 void ModuleAudio::pauseResume() {
  if(!playing_ || !sink_) return;
@@ -83,6 +99,7 @@ void ModuleAudio::stop() {
  playing_=false; paused_=false;
  if(sink_) { sink_->stop(); sink_.reset(); }
  if(isOpen()) close();
+ if (module_ && seek_) seek_(module_,0.0);
  emit stateChanged("STOPPED");
 }
 bool ModuleAudio::isPlaying() const { return playing_; }
