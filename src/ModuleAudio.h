@@ -5,7 +5,18 @@
 #include <QAudioSink>
 #include <QTimer>
 #include <memory>
+#include <QVector>
 #include <atomic>
+struct EffectSnapshot {
+ int channels = 0;
+ int speed = 0;
+ int bpm = 0;
+ int pattern = 0;
+ int row = 0;
+ QVector<int> usedCommands;
+ QVector<int> currentCommands;
+};
+
 class ModuleAudio final : public QIODevice {
  Q_OBJECT
 public:
@@ -20,6 +31,7 @@ public:
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
+ EffectSnapshot effectsSnapshot() const;
  bool isSequential() const override { return true; }
  qint64 readData(char* data, qint64 maxlen) override;
  quint64 decodedFrames() const { return decodedFrames_.load(); }
@@ -35,6 +47,14 @@ private:
  using SeekFn = double(*)(void*, double);
  using MetadataFn = char*(*)(void*, const char*);
  using FreeStringFn = void(*)(char*);
+ using IntFn = int32_t(*)(void*);
+ using PatternRowsFn = int32_t(*)(void*,int32_t);
+ using PatternCommandFn = uint8_t(*)(void*,int32_t,int32_t,int32_t,int);
+ IntFn numChannels_=nullptr, numPatterns_=nullptr, currentSpeed_=nullptr,
+       currentTempo_=nullptr, currentPattern_=nullptr, currentRow_=nullptr;
+ PatternRowsFn patternRows_=nullptr;
+ PatternCommandFn patternCommand_=nullptr;
+ QVector<int> usedCommands_;
  QLibrary library_;
  CreateFn create_=nullptr;
  ReadFn read_=nullptr;
