@@ -2,7 +2,7 @@
 #include "ModuleAudio.h"
 #include "ClassicDisplay.h"
 #include "SetupDialog.h"
-#include "EffectsCanvas.h"
+#include "EffectsWindow.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -300,16 +300,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     infoLayout->addWidget(instruments);
     infoLayout->addWidget(led("NO MODULE LOADED", info_, 65));
 
-    effects_ = new QDialog(this);
-    effects_->setWindowTitle("MOD4WIN [2.40] Effects");
-    effects_->setWindowFlags(Qt::Window);
-    effects_->setStyleSheet(classicStyle);
-    effects_->resize(450, 370);
-    effects_->resize(285, 230);
-    auto* effectsLayout = new QVBoxLayout(effects_);
-    effectsLayout->setContentsMargins(6,6,6,6);
-    effectsLayout->addWidget(new EffectsCanvas(effects_));
-    effectsLayout->addWidget(new QLabel("Static rendering scaffold — live effects not yet connected.", effects_));
+    effects_ = new EffectsWindow(this);
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(5, 3, 5, 4);
