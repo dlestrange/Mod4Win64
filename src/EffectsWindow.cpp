@@ -61,3 +61,10 @@ void EffectsWindow::mouseMoveEvent(QMouseEvent* event) {
 void EffectsWindow::mouseReleaseEvent(QMouseEvent* event) {
     if (!handleMouse(event)) QDialog::mouseReleaseEvent(event);
 }
+
+void EffectsWindow::setSnapshot(const EffectSnapshot& snapshot) {
+    const QSize oldSize=canvas_->sizeHint();
+    canvas_->setSnapshot(snapshot);
+    const QSize newSize=canvas_->sizeHint();
+    if(newSize!=size()) setPanelSize(newSize.width(),newSize.height());
+}
