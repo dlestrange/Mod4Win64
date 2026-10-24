@@ -38,6 +38,8 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    currentRow_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_row"));
    patternRows_=reinterpret_cast<PatternRowsFn>(library_.resolve("openmpt_module_get_pattern_num_rows"));
    patternCommand_=reinterpret_cast<PatternCommandFn>(library_.resolve("openmpt_module_get_pattern_row_channel_command"));
+   vuLeft_=reinterpret_cast<VuFn>(library_.resolve("openmpt_module_get_current_channel_vu_left"));
+   vuRight_=reinterpret_cast<VuFn>(library_.resolve("openmpt_module_get_current_channel_vu_right"));
    if (!create_ || !read_ || !destroy_) {
      if (message) *message="libopenmpt DLL is missing required API functions.";
      return false;
@@ -181,14 +183,25 @@ EffectSnapshot ModuleAudio::effectsSnapshot() const {
  result.channels=qBound(0,numChannels_(module_),256);
  result.usedCommands=usedCommands_;
  result.currentCommands.fill(0,result.channels);
+ result.notes.fill(0,result.channels);
+ result.instruments.fill(0,result.channels);
+ result.vuLeft.fill(0.0f,result.channels);
+ result.vuRight.fill(0.0f,result.channels);
  if(currentSpeed_) result.speed=currentSpeed_(module_);
  if(currentTempo_) result.bpm=currentTempo_(module_);
  if(currentPattern_) result.pattern=currentPattern_(module_);
  if(currentRow_) result.row=currentRow_(module_);
  if(patternCommand_ && result.pattern>=0 && result.row>=0 &&
     patternRows_ && result.row<patternRows_(module_,result.pattern)) {
-   for(int ch=0;ch<result.channels;++ch)
+   for(int ch=0;ch<result.channels;++ch) {
      result.currentCommands[ch]=patternCommand_(module_,result.pattern,result.row,ch,3);
+     result.notes[ch]=patternCommand_(module_,result.pattern,result.row,ch,0);
+     result.instruments[ch]=patternCommand_(module_,result.pattern,result.row,ch,1);
+   }
+ }
+ for(int ch=0;ch<result.channels;++ch) {
+   if(vuLeft_) result.vuLeft[ch]=qBound(0.0f,vuLeft_(module_,ch),1.0f);
+   if(vuRight_) result.vuRight[ch]=qBound(0.0f,vuRight_(module_,ch),1.0f);
  }
  return result;
 }
