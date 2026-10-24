@@ -15,6 +15,10 @@ struct EffectSnapshot {
  int row = 0;
  QVector<int> usedCommands;
  QVector<int> currentCommands;
+ QVector<int> notes;
+ QVector<int> instruments;
+ QVector<float> vuLeft;
+ QVector<float> vuRight;
 };
 
 class ModuleAudio final : public QIODevice {
@@ -50,10 +54,12 @@ private:
  using IntFn = int32_t(*)(void*);
  using PatternRowsFn = int32_t(*)(void*,int32_t);
  using PatternCommandFn = uint8_t(*)(void*,int32_t,int32_t,int32_t,int);
+ using VuFn = float(*)(void*,int32_t);
  IntFn numChannels_=nullptr, numPatterns_=nullptr, currentSpeed_=nullptr,
        currentTempo_=nullptr, currentPattern_=nullptr, currentRow_=nullptr;
  PatternRowsFn patternRows_=nullptr;
  PatternCommandFn patternCommand_=nullptr;
+ VuFn vuLeft_=nullptr, vuRight_=nullptr;
  QVector<int> usedCommands_;
  QLibrary library_;
  CreateFn create_=nullptr;
