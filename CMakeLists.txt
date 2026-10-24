@@ -17,6 +17,8 @@ qt_add_executable(Mod4Win64 WIN32
     src/SetupDialog.h
     src/EffectsCanvas.cpp
     src/EffectsCanvas.h
+    src/EffectsWindow.cpp
+    src/EffectsWindow.h
     src/ModuleAudio.cpp
     src/ModuleAudio.h
 )
