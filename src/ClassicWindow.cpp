@@ -395,9 +395,15 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     diagnosticTimer->setInterval(1000);
     connect(diagnosticTimer, &QTimer::timeout, this, [this] {
         display_->setDiagnostics(audio_->decodedFrames(), audio_->nonzeroSamples());
-        effects_->setSnapshot(audio_->effectsSnapshot());
     });
     diagnosticTimer->start();
+    // Refresh the visualisation often enough to catch tracker rows.
+    auto* effectsTimer = new QTimer(this);
+    effectsTimer->setInterval(50);
+    connect(effectsTimer, &QTimer::timeout, this, [this] {
+        if (effects_->isVisible()) effects_->setSnapshot(audio_->effectsSnapshot());
+    });
+    effectsTimer->start();
 }
 void ClassicPlayer::setPanelVisible(QWidget* panel) {
     panel->show();
