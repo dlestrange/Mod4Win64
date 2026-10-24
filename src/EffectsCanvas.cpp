@@ -37,7 +37,5 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
             p.fillRect(cell.adjusted(1,2,-1,-3),QColor("#22672e"));
         }
     }
-    p.setPen(QColor("#222222"));
-    p.drawText(6,159,"Waiting for module effect analysis");
     p.restore();
 }
