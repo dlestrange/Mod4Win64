@@ -395,6 +395,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     diagnosticTimer->setInterval(1000);
     connect(diagnosticTimer, &QTimer::timeout, this, [this] {
         display_->setDiagnostics(audio_->decodedFrames(), audio_->nonzeroSamples());
+        effects_->setSnapshot(audio_->effectsSnapshot());
     });
     diagnosticTimer->start();
 }
@@ -410,5 +411,6 @@ void ClassicPlayer::chooseTrack(const QString& path) {
         return;
     }
     display_->setTitle(audio_->moduleTitle().toUpper());
+    effects_->setSnapshot(audio_->effectsSnapshot());
     audio_->play();
 }
