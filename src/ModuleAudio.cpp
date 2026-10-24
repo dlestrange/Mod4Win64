@@ -6,6 +6,7 @@
 #include <QMetaObject>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 
 ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {
  pumpTimer_.setInterval(10);
@@ -29,6 +30,14 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    seek_=reinterpret_cast<SeekFn>(library_.resolve("openmpt_module_set_position_seconds"));
    metadata_=reinterpret_cast<MetadataFn>(library_.resolve("openmpt_module_get_metadata"));
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
+   numChannels_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_channels"));
+   numPatterns_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_patterns"));
+   currentSpeed_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_speed"));
+   currentTempo_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_tempo"));
+   currentPattern_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_pattern"));
+   currentRow_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_row"));
+   patternRows_=reinterpret_cast<PatternRowsFn>(library_.resolve("openmpt_module_get_pattern_num_rows"));
+   patternCommand_=reinterpret_cast<PatternCommandFn>(library_.resolve("openmpt_module_get_pattern_row_channel_command"));
    if (!create_ || !read_ || !destroy_) {
      if (message) *message="libopenmpt DLL is missing required API functions.";
      return false;
@@ -51,6 +60,20 @@ bool ModuleAudio::load(const QString& path, QString* message) {
      if(!decoded.isEmpty()) title_=decoded;
      freeString_(name);
    }
+ }
+ usedCommands_.clear();
+ if (numChannels_ && numPatterns_ && patternRows_ && patternCommand_) {
+   const int channels=qBound(0,numChannels_(module_),256);
+   const int patterns=qBound(0,numPatterns_(module_),2048);
+   for (int pat=0;pat<patterns;++pat) {
+     const int rows=qBound(0,patternRows_(module_,pat),1024);
+     for(int row=0;row<rows;++row)
+       for(int ch=0;ch<channels;++ch) {
+         const int command=patternCommand_(module_,pat,row,ch,3);
+         if(command>0 && !usedCommands_.contains(command)) usedCommands_.append(command);
+       }
+   }
+   std::sort(usedCommands_.begin(),usedCommands_.end());
  }
  emit stateChanged("READY");
  return true;
@@ -150,4 +173,22 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
  }
  nonzeroSamples_.fetch_add(audible);
  return static_cast<qint64>(produced*4);
+}
+
+EffectSnapshot ModuleAudio::effectsSnapshot() const {
+ EffectSnapshot result;
+ if (!module_ || !numChannels_) return result;
+ result.channels=qBound(0,numChannels_(module_),256);
+ result.usedCommands=usedCommands_;
+ result.currentCommands.fill(0,result.channels);
+ if(currentSpeed_) result.speed=currentSpeed_(module_);
+ if(currentTempo_) result.bpm=currentTempo_(module_);
+ if(currentPattern_) result.pattern=currentPattern_(module_);
+ if(currentRow_) result.row=currentRow_(module_);
+ if(patternCommand_ && result.pattern>=0 && result.row>=0 &&
+    patternRows_ && result.row<patternRows_(module_,result.pattern)) {
+   for(int ch=0;ch<result.channels;++ch)
+     result.currentCommands[ch]=patternCommand_(module_,result.pattern,result.row,ch,3);
+ }
+ return result;
 }
