@@ -14,6 +14,7 @@ struct EffectSnapshot {
  int bpm = 0;
  int pattern = 0;
  int row = 0;
+ double elapsedSeconds = 0.0;
  QVector<int> usedCommands;
  QVector<int> currentCommands;
  QVector<int> notes;
@@ -50,6 +51,7 @@ private:
  using ReadFn = size_t(*)(void*, int32_t, size_t, int16_t*);
  using DestroyFn = void(*)(void*);
  using SeekFn = double(*)(void*, double);
+ using PositionFn = double(*)(void*);
  using MetadataFn = char*(*)(void*, const char*);
  using FreeStringFn = void(*)(char*);
  using IntFn = int32_t(*)(void*);
@@ -67,6 +69,7 @@ private:
  ReadFn read_=nullptr;
  DestroyFn destroy_=nullptr;
  SeekFn seek_=nullptr;
+ PositionFn position_=nullptr;
  MetadataFn metadata_=nullptr;
  FreeStringFn freeString_=nullptr;
  void* module_=nullptr;
