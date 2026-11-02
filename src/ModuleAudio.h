@@ -8,6 +8,7 @@
 #include <QVector>
 #include <atomic>
 struct EffectSnapshot {
+ QString moduleIdentity;
  int channels = 0;
  int speed = 0;
  int bpm = 0;
