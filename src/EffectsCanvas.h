@@ -11,4 +11,9 @@ protected:
  void paintEvent(QPaintEvent*) override;
 private:
  EffectSnapshot snapshot_;
+ QVector<int> heldNotes_;
+ QVector<int> heldInstruments_;
+ QString lastModule_;
+ int lastPattern_ = -1;
+ int lastRow_ = -1;
 };
