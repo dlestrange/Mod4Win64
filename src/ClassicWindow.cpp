@@ -320,6 +320,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     root->addLayout(header);
     auto* setupDialog = new SetupDialog(this);
     connect(setupButton, &QPushButton::clicked, setupDialog, &QDialog::show);
+    connect(setupDialog, &SetupDialog::effectsScaleChanged, effects_, &EffectsWindow::setScaleMode);
     connect(helpButton, &QPushButton::clicked, this, [this] {
         QMessageBox::information(this, "Mod4Win64", 
             "Mod4Win64 is a revival of the classic Mod4Win player.\\n"
