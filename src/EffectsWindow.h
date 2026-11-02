@@ -9,6 +9,7 @@ public:
     explicit EffectsWindow(QWidget* parent = nullptr);
     void setPanelSize(int width, int height);
  void setSnapshot(const EffectSnapshot& snapshot);
+ void setScaleMode(const QString& mode);
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
