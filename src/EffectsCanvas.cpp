@@ -74,7 +74,10 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     frame(QRect(w-91,6,83,55),true);
     frame(QRect(w-91,64,83,11),true);
 
-    // A bevel frame leaves the pen white; restore dark text for panel captions.\n    p.setPen(QColor("#101010"));\n    p.save();\n    p.translate(20,59);
+    // Restore dark text after painting the light bevel edges.
+    p.setPen(QColor("#101010"));
+    p.save();
+    p.translate(20,59);
     p.rotate(-90);
     p.drawText(0,0,"Effects");
     p.restore();
