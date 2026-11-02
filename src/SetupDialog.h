@@ -6,4 +6,6 @@ class SetupDialog final : public QDialog {
     Q_OBJECT
 public:
     explicit SetupDialog(QWidget* parent = nullptr);
+signals:
+    void effectsScaleChanged(const QString& mode);
 };
