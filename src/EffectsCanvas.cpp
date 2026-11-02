@@ -122,10 +122,13 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     p.drawText(w-37,18,speed);
     p.drawText(w-88,31,"BPM:");
     p.drawText(w-37,31,bpm);
+    // Tracker rows are zero-based internally; Mod4Win displays 1-based notes.
     p.drawText(w-88,44,"Note:");
-    p.drawText(w-37,44,"--");
+    p.drawText(w-37,44,snapshot_.channels?QString::number(snapshot_.row+1):"--");
     p.drawText(w-88,57,"Time:");
-    p.drawText(w-37,57,"--:--");
+    const int seconds=std::max(0,static_cast<int>(snapshot_.elapsedSeconds));
+    const QString elapsed=QString("%1:%2").arg(seconds/60).arg(seconds%60,2,10,QChar('0'));
+    p.drawText(w-37,57,snapshot_.channels?elapsed:"--:--");
     p.drawText(w-88,73,"Note");
     p.drawText(w-65,73,"L  R");
     p.drawText(w-26,73,"Inst.");
