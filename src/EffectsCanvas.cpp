@@ -144,7 +144,9 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     const QString elapsed=QString("%1:%2").arg(seconds/60).arg(seconds%60,2,10,QChar('0'));
     p.drawText(w-37,57,snapshot_.channels?elapsed:"--:--");
     p.drawText(w-88,73,"Note");
-    p.drawText(w-65,73,"L  R");
+    // Align each heading over its outward-growing half-meter.
+    p.drawText(QRect(w-70,64,20,10),Qt::AlignCenter,"L");
+    p.drawText(QRect(w-48,64,20,10),Qt::AlignCenter,"R");
     p.drawText(w-26,73,"Inst.");
 
     if(snapshot_.channels>0) {
@@ -158,13 +160,17 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     for(int ch=0;ch<snapshot_.channels;++ch) {
         const int y=rowY+ch*rowHeight;
         p.setPen(QColor("#111111"));
-        p.drawText(QRect(8,y,16,8),Qt::AlignRight,QString::number(ch+1));
+        // Use a baseline rather than squeezing glyphs inside an 8-pixel QRect;
+        // Tahoma's font metrics were clipping descenders/digit bottoms.
+        p.drawText(8,y+7,QString("%1").arg(ch+1,2,10,QChar(' ')));
         for(int col=0;col<snapshot_.usedCommands.size();++col) {
             const QRect cell(effectX+col*effectWidth,y,13,8);
-            p.fillRect(cell,QColor("#062307"));
+            // Consistent green inset: avoid the previous cool-coloured strip
+            // showing along the bottom of each cell when enlarged.
+            p.fillRect(cell,QColor("#0b3b10"));
             const bool active=ch<snapshot_.currentCommands.size() &&
                 snapshot_.currentCommands[ch]==snapshot_.usedCommands[col];
-            p.fillRect(cell.adjusted(1,1,-1,-2),active?QColor("#4fff50"):QColor("#238b2e"));
+            p.fillRect(cell.adjusted(1,1,-1,-1),active?QColor("#4fff50"):QColor("#238b2e"));
         }
         const int note=ch<heldNotes_.size()?heldNotes_[ch]:0;
         const int inst=ch<heldInstruments_.size()?heldInstruments_[ch]:0;
