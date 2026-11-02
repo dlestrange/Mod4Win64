@@ -54,6 +54,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
  if (bytes.isEmpty()) { if(message) *message="Module file is empty."; return false; }
  module_=create_(bytes.constData(),static_cast<size_t>(bytes.size()),nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
  if(!module_) { if(message) *message="Unable to decode this tracker module."; return false; }
+ loadedPath_=path;
  title_=QFileInfo(path).fileName();
 
  if (metadata_ && freeString_) {
@@ -181,7 +182,7 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
 EffectSnapshot ModuleAudio::effectsSnapshot() const {
  EffectSnapshot result;
  if (!module_ || !numChannels_) return result;
- result.moduleIdentity=title_;
+ result.moduleIdentity=loadedPath_;
  result.channels=qBound(0,numChannels_(module_),256);
  result.usedCommands=usedCommands_;
  result.currentCommands.fill(0,result.channels);
