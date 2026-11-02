@@ -61,7 +61,7 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     constexpr int x0=25,y0=69,cellW=14,cellH=9;
     const int sideX=x0+cellW*snapshot_.usedCommands.size()+3;
     // Row legend: per-row event note/instrument, live L/R output levels.
-    p.drawText(sideX,63,"Note  L  R Ins");
+    p.drawText(sideX,63,"Note   L  R   Ins");
     for(int col=0;col<snapshot_.usedCommands.size();++col) {
         const QString label=QString::number(snapshot_.usedCommands[col],16).toUpper().rightJustified(2,'0');
         p.save();p.translate(x0+col*cellW+10,62);p.rotate(-90);
@@ -82,15 +82,29 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         const int inst=ch<heldInstruments_.size()?heldInstruments_[ch]:0;
         p.setPen(QColor("#111111"));
         p.drawText(sideX,y+7,noteLabel(note));
-        const auto meter=[&](int x,float val) {
-            const QRect cell(x,y+1,12,7);
-            p.fillRect(cell,QColor("#082109"));
-            const int length=static_cast<int>(std::clamp(val,0.0f,1.0f)*11.0f);
-            if(length>0) p.fillRect(x,y+2,length,5,QColor("#43ee4d"));
+        // The original ana.pas draws a packed stereo meter with its
+        // left side growing LEFT and right side growing RIGHT.
+        // Approximate channel contributions are provided by libopenmpt,
+        // without analysing the PCM waveform.
+        const int centre=sideX+45;
+        const auto meter=[&](bool left,float level) {
+            constexpr int segments=7, step=2;
+            const float safe=std::isfinite(level)?std::clamp(level,0.0f,1.0f):0.0f;
+            const int lit=static_cast<int>(std::lround(safe*segments));
+            for(int i=0;i<segments;++i) {
+                const int x=left ? centre-2-(i+1)*step : centre+2+i*step;
+                p.fillRect(x,y+1,step,7,QColor("#080808"));
+                if(i<lit) {
+                    const QColor colour=i<4 ? QColor("#22db38") :
+                        (i<6 ? QColor("#e4d52c") : QColor("#ee3d27"));
+                    p.fillRect(x,y+2,step,5,colour);
+                }
+            }
         };
-        meter(sideX+30,ch<snapshot_.vuLeft.size()?snapshot_.vuLeft[ch]:0);
-        meter(sideX+45,ch<snapshot_.vuRight.size()?snapshot_.vuRight[ch]:0);
+        meter(true,ch<snapshot_.vuLeft.size()?snapshot_.vuLeft[ch]:0);
+        meter(false,ch<snapshot_.vuRight.size()?snapshot_.vuRight[ch]:0);
+        p.fillRect(centre,y+1,1,7,QColor("#aaaaaa"));
         p.setPen(QColor("#101010"));
-        p.drawText(sideX+62,y+7,inst?QString::number(inst):"--");
+        p.drawText(sideX+66,y+7,inst?QString::number(inst):"--");
     }
 }
