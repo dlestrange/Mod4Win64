@@ -1,5 +1,6 @@
 #include "EffectsCanvas.h"
 #include <QPainter>
+#include <QImage>
 #include <QFont>
 #include <algorithm>
 #include <cmath>
@@ -13,9 +14,18 @@ QString noteLabel(int note) {
 }
 }
 EffectsCanvas::EffectsCanvas(QWidget* parent) : QWidget(parent) {}
+QSize EffectsCanvas::logicalSize() const {
+ const int channels=std::max(1,snapshot_.channels);
+ return QSize(124+14*snapshot_.usedCommands.size(),90+9*channels);
+}
 QSize EffectsCanvas::sizeHint() const {
-    const int channels=std::max(1,snapshot_.channels);
-    return QSize(124+14*snapshot_.usedCommands.size(), 90+9*channels);
+ const QSize sz=logicalSize();
+ return QSize(qRound(sz.width()*scale_),qRound(sz.height()*scale_));
+}
+void EffectsCanvas::setScale(double scale) {
+ scale_=std::clamp(scale,1.0,3.0);
+ updateGeometry();
+ update();
 }
 void EffectsCanvas::setSnapshot(const EffectSnapshot& snapshot) {
     const bool newModule=(snapshot.moduleIdentity!=lastModule_ || heldNotes_.size()!=snapshot.channels);
@@ -42,9 +52,13 @@ void EffectsCanvas::setSnapshot(const EffectSnapshot& snapshot) {
     update();
 }
 void EffectsCanvas::paintEvent(QPaintEvent*) {
-    QPainter p(this);
+    // Paint once at the original logical resolution, then enlarge the whole
+    // bitmap with nearest-neighbour sampling. No individual font/line scaling.
+    const QSize logical=logicalSize();
+    QImage pixels(logical,QImage::Format_ARGB32_Premultiplied);
+    QPainter p(&pixels);
     p.setRenderHint(QPainter::Antialiasing, false);
-    const int w=width(), h=height();
+    const int w=logical.width(), h=logical.height();
     p.fillRect(rect(), QColor("#c0c0c0"));
 
     auto frame=[&](const QRect& r, bool sunken) {
@@ -177,4 +191,9 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         p.setPen(QColor("#111111"));
         p.drawText(QRect(w-25,y,16,8),Qt::AlignCenter,inst?QString::number(inst):"---");
     }
+    p.end();
+    QPainter output(this);
+    output.setRenderHint(QPainter::SmoothPixmapTransform,false);
+    output.drawImage(rect(),pixels);
+
 }
