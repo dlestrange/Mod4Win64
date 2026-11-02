@@ -28,6 +28,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    read_=reinterpret_cast<ReadFn>(library_.resolve("openmpt_module_read_interleaved_stereo"));
    destroy_=reinterpret_cast<DestroyFn>(library_.resolve("openmpt_module_destroy"));
    seek_=reinterpret_cast<SeekFn>(library_.resolve("openmpt_module_set_position_seconds"));
+   position_=reinterpret_cast<PositionFn>(library_.resolve("openmpt_module_get_position_seconds"));
    metadata_=reinterpret_cast<MetadataFn>(library_.resolve("openmpt_module_get_metadata"));
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
    numChannels_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_channels"));
@@ -194,6 +195,7 @@ EffectSnapshot ModuleAudio::effectsSnapshot() const {
  if(currentTempo_) result.bpm=currentTempo_(module_);
  if(currentPattern_) result.pattern=currentPattern_(module_);
  if(currentRow_) result.row=currentRow_(module_);
+ if(position_) result.elapsedSeconds=position_(module_);
  if(patternCommand_ && result.pattern>=0 && result.row>=0 &&
     patternRows_ && result.row<patternRows_(module_,result.pattern)) {
    for(int ch=0;ch<result.channels;++ch) {
