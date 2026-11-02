@@ -5,6 +5,7 @@
 #include <QEvent>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QSettings>
 
 EffectsWindow::EffectsWindow(QWidget* parent) : QDialog(parent) {
     setWindowTitle("MOD4WIN [2.40] Effects");
@@ -18,6 +19,8 @@ EffectsWindow::EffectsWindow(QWidget* parent) : QDialog(parent) {
     canvas_->installEventFilter(this);
     layout->addWidget(canvas_);
     setFixedSize(canvas_->sizeHint());
+    QSettings settings("Mod4Win64","Mod4Win64");
+    setScaleMode(settings.value("appearance/effectsScale","auto").toString());
 }
 void EffectsWindow::setPanelSize(int width, int height) {
     if (width < 1 || height < 1) return;
@@ -63,8 +66,25 @@ void EffectsWindow::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void EffectsWindow::setSnapshot(const EffectSnapshot& snapshot) {
-    const QSize oldSize=canvas_->sizeHint();
     canvas_->setSnapshot(snapshot);
     const QSize newSize=canvas_->sizeHint();
     if(newSize!=size()) setPanelSize(newSize.width(),newSize.height());
+}
+
+void EffectsWindow::setScaleMode(const QString& mode) {
+    double scale=1.0;
+    if(mode=="150") scale=1.5;
+    else if(mode=="200") scale=2.0;
+    else if(mode=="300") scale=3.0;
+    else if(mode=="auto") {
+        const QScreen* screen=QGuiApplication::screenAt(frameGeometry().center());
+        if(!screen) screen=QGuiApplication::primaryScreen();
+        // Qt uses device-independent pixels: base the enlargement on the
+        // usable logical desktop width rather than multiplying DPR again.
+        const int screenWidth=screen?screen->availableGeometry().width():1280;
+        scale=screenWidth>=2200?2.0:(screenWidth>=1600?1.5:1.0);
+    }
+    canvas_->setScale(scale);
+    const QSize size=canvas_->sizeHint();
+    setPanelSize(size.width(),size.height());
 }
