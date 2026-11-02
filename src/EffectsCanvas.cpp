@@ -18,6 +18,26 @@ QSize EffectsCanvas::sizeHint() const {
     return QSize(124+14*snapshot_.usedCommands.size(), 90+9*channels);
 }
 void EffectsCanvas::setSnapshot(const EffectSnapshot& snapshot) {
+    const bool newModule=(snapshot.moduleIdentity!=lastModule_ || heldNotes_.size()!=snapshot.channels);
+    if(newModule) {
+        heldNotes_.fill(0,snapshot.channels);
+        heldInstruments_.fill(0,snapshot.channels);
+        lastModule_=snapshot.moduleIdentity;
+        lastPattern_=-1;
+        lastRow_=-1;
+    }
+    // Remember pattern events across empty rows. These are last-seen values,
+    // not a claim about voices currently sounding in the mixing engine.
+    if(snapshot.channels>0 && (newModule || snapshot.pattern!=lastPattern_ || snapshot.row!=lastRow_)) {
+        for(int ch=0;ch<snapshot.channels;++ch) {
+            if(ch<snapshot.notes.size() && snapshot.notes[ch]>0 && snapshot.notes[ch]<=120)
+                heldNotes_[ch]=snapshot.notes[ch];
+            if(ch<snapshot.instruments.size() && snapshot.instruments[ch]>0)
+                heldInstruments_[ch]=snapshot.instruments[ch];
+        }
+        lastPattern_=snapshot.pattern;
+        lastRow_=snapshot.row;
+    }
     snapshot_=snapshot;
     update();
 }
@@ -58,8 +78,8 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
                 snapshot_.currentCommands[ch]==snapshot_.usedCommands[col];
             p.fillRect(cell.adjusted(1,2,-1,-3),active ? QColor("#4dff54") : QColor("#22672e"));
         }
-        const int note=ch<snapshot_.notes.size()?snapshot_.notes[ch]:0;
-        const int inst=ch<snapshot_.instruments.size()?snapshot_.instruments[ch]:0;
+        const int note=ch<heldNotes_.size()?heldNotes_[ch]:0;
+        const int inst=ch<heldInstruments_.size()?heldInstruments_[ch]:0;
         p.setPen(QColor("#111111"));
         p.drawText(sideX,y+7,noteLabel(note));
         const auto meter=[&](int x,float val) {
