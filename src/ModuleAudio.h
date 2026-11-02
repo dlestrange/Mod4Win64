@@ -71,6 +71,7 @@ private:
  FreeStringFn freeString_=nullptr;
  void* module_=nullptr;
  QString title_;
+ QString loadedPath_;
  std::unique_ptr<QAudioSink> sink_;
  QIODevice* outputDevice_ = nullptr;
  QTimer pumpTimer_;
