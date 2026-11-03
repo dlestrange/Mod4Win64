@@ -271,29 +271,81 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(424,68,state_.left(16).toUpper());
     p.drawText(424,83,nonzero_?"AUDIO ACTIVE":"AUDIO IDLE");
 
-    // Original PREAMP gain control: a narrow illuminated horizontal cursor
-    // travels *behind* the fixed red/yellow/green lettering. The level text
-    // reports integer dB from +20 to -20; audio gain is not yet wired.
+    // PREAMP is a miniature graphic instrument in the original Mod4Win:
+    // broad, outlined block letters, coloured zones, a thin sliding highlight,
+    // and an LCD-like two-line dB readout. Draw it ourselves, not with a host
+    // font (which varies by Windows DPI / macOS).
     constexpr int trackTop=9, trackTravel=61;
     const int markerY=trackTop+
         int(std::lround((20-preampDb_)*trackTravel/40.0));
-    p.fillRect(581,markerY-2,38,6,QColor("#d6d6d6"));
-    p.fillRect(582,markerY-1,36,4,QColor("#f9f9f9"));
-    p.fillRect(584,markerY,32,2,QColor("#797979"));
-    const QString preamp="PREAMP";
-    const QColor preampColors[]={
-        QColor("#df2b20"),QColor("#f7c929"),QColor("#48f543"),
-        QColor("#48f543"),QColor("#f7c929"),QColor("#d62c24")};
-    QFont ampFont("Arial",9,QFont::Black);
-    p.setFont(ampFont);
-    for(int i=0;i<preamp.size();++i) {
-        p.setPen(preampColors[i]);
-        p.drawText(584,14+i*11,QString(preamp[i]));
+    const QColor letterColors[6]={
+        QColor("#cd2018"), QColor("#daa21c"), QColor("#21da28"),
+        QColor("#138d1c"), QColor("#a38512"), QColor("#bd1b18")};
+    static const char* const letterPixels[6][5]={
+        {"1111110","1100011","1111110","1100000","1100000"}, // P
+        {"1111110","1100011","1111110","1101100","1100011"}, // R
+        {"1111111","1100000","1111110","1100000","1111111"}, // E
+        {"0111110","1100011","1111111","1100011","1100011"}, // A
+        {"1100011","1110111","1111111","1101011","1100011"}, // M
+        {"1111110","1100011","1111110","1100000","1100000"}  // P
+    };
+    // Recessed indicator; coloured underglow follows the slider, not the
+    // letters. This is deliberately smaller than the old long grey bar.
+    p.fillRect(581,markerY-3,39,8,QColor("#5b5b5b"));
+    p.fillRect(582,markerY-2,37,6,QColor("#e5e5e5"));
+    p.fillRect(583,markerY-1,35,3,QColor("#f8f8f8"));
+    const int zone=std::clamp((markerY-5)/11,0,5);
+    const QColor glow=letterColors[zone].lighter(165);
+    p.fillRect(584,markerY+2,33,2,glow);
+
+    for(int i=0;i<6;++i) {
+        const int y0=5+i*11;
+        for(int row=0;row<5;++row) {
+            for(int col=0;col<7;++col) {
+                if(letterPixels[i][row][col]!='1') continue;
+                const QRect pixel(585+col*4,y0+row*2,4,2);
+                const QColor c=(pixel.center().y()>=markerY-1 &&
+                                pixel.center().y()<=markerY+3)
+                    ?letterColors[i].lighter(175):letterColors[i];
+                p.fillRect(pixel,c);
+            }
+        }
     }
-    p.setPen(lit);
-    p.setFont(small);
-    const QString gainText=(preampDb_>0?"+":"")+QString::number(preampDb_)+"dB";
-    p.drawText(QRect(578,76,44,16),Qt::AlignHCenter|Qt::AlignVCenter,gainText);
+    // Fixed-size green LCD numerals for the gain value, in two lines like
+    // the original: signed figure above, dB below.
+    auto miniGlyph=[&](int x,int y,const QStringList& rows,
+                       int pixelWidth,int pixelHeight) {
+        for(int gy=0;gy<rows.size();++gy)
+            for(int gx=0;gx<rows.at(gy).size();++gx)
+                if(rows.at(gy).at(gx)==QLatin1Char('1'))
+                    p.fillRect(x+gx*pixelWidth,y+gy*pixelHeight,
+                               pixelWidth,pixelHeight,lit);
+    };
+    static const QHash<QChar,QStringList> numericPixels={
+        {'0',{"111","101","101","101","111"}},
+        {'1',{"010","110","010","010","111"}},
+        {'2',{"111","001","111","100","111"}},
+        {'3',{"111","001","111","001","111"}},
+        {'4',{"101","101","111","001","001"}},
+        {'5',{"111","100","111","001","111"}},
+        {'6',{"111","100","111","101","111"}},
+        {'7',{"111","001","010","010","010"}},
+        {'8',{"111","101","111","101","111"}},
+        {'9',{"111","101","111","001","111"}},
+        {'+',{"000","010","111","010","000"}},
+        {'-',{"000","000","111","000","000"}}
+    };
+    const QString gain=(preampDb_>0?"+":preampDb_<0?"-":"")
+        +QString::number(std::abs(preampDb_));
+    const int glyphPitch=8;
+    const int gainLeft=600-int(gain.size())*glyphPitch/2;
+    for(int i=0;i<gain.size();++i) {
+        const auto it=numericPixels.constFind(gain.at(i));
+        if(it!=numericPixels.constEnd())
+            miniGlyph(gainLeft+i*glyphPitch,76,it.value(),2,2);
+    }
+    miniGlyph(591,87,{"001","001","111","101","111"},2,1); // d
+    miniGlyph(603,87,{"110","101","110","101","110"},2,1); // B
     p.end();
 
     QPainter output(this);
