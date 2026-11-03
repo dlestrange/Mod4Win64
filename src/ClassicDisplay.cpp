@@ -149,7 +149,7 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
     // Mouse position maps back to the 626x96 logical LCD coordinate space.
     const QPointF logical(event->position().x()*W/width(),
                           event->position().y()*H/height());
-    if(event->button()==Qt::LeftButton && QRectF(391,2,24,40).contains(logical)) {
+    if(event->button()==Qt::LeftButton && QRectF(383,2,25,40).contains(logical)) {
         showFilename_=!showFilename_;
         QSettings("Mod4Win64","Mod4Win64")
             .setValue("appearance/showModuleFilename",showFilename_);
@@ -170,8 +170,9 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     QPainter p(&canvas);
     p.setRenderHint(QPainter::Antialiasing,false);
     // Narrow title/filename toggle lives between the two display sections.
-    // Reserve a real button-width strip rather than covering the LED text.
-    bevel(p,{2,2,389,39});
+    // Align the outer edge of the title/toggle assembly with the pattern
+    // LCD underneath (logical x=408), leaving the right status pane alone.
+    bevel(p,{2,2,406,39});
     bevel(p,{417,2,156,94});
     bevel(p,{2,46,251,48});
     bevel(p,{257,46,151,48});
@@ -180,19 +181,19 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     // The matrix renders true green pixel dots rather than a raster font.
     const QString visibleTitle=showFilename_ && !filename_.isEmpty()
         ?filename_:title_;
-    drawMatrix(p,{8,5,378,32},visibleTitle);
+    drawMatrix(p,{8,5,373,32},visibleTitle);
     // Small recessed rocker, modelled on the original switch next to the
     // title matrix; its green marker changes end when toggled.
-    p.fillRect(QRect(393,3,21,37),QColor("#c0c0c0"));
+    p.fillRect(QRect(384,3,22,37),QColor("#c0c0c0"));
     p.setPen(QColor("#ffffff"));
-    p.drawLine(393,3,413,3);
-    p.drawLine(393,3,393,39);
+    p.drawLine(384,3,406,3);
+    p.drawLine(384,3,384,39);
     p.setPen(QColor("#626262"));
-    p.drawLine(413,3,413,39);
-    p.drawLine(393,39,413,39);
-    p.fillRect(QRect(396,6,15,31),QColor("#e0e0e0"));
-    p.fillRect(QRect(397,showFilename_?29:8,13,5),QColor("#14672b"));
-    p.fillRect(QRect(398,showFilename_?30:9,11,3),lit);
+    p.drawLine(406,3,406,39);
+    p.drawLine(384,39,406,39);
+    p.fillRect(QRect(388,6,15,31),QColor("#e0e0e0"));
+    p.fillRect(QRect(389,showFilename_?29:8,13,5),QColor("#14672b"));
+    p.fillRect(QRect(390,showFilename_?30:9,11,3),lit);
 
     QFont small("Tahoma",8,QFont::Bold);
     small.setStyleStrategy(QFont::NoAntialias);
