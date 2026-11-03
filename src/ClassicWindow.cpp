@@ -286,19 +286,51 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     audio_ = new ModuleAudio(this);
     jukebox_ = new JukeboxWindow(this);
     info_ = new QDialog(this);
-    info_->setWindowTitle("MOD4WIN [2.40] Module Info");
+    info_->setWindowTitle("MOD4WIN [2.40 Last Beta] Module Info");
     info_->setWindowFlags(Qt::Window);
     info_->setStyleSheet(classicStyle);
-    info_->resize(780, 480);
+    info_->setFixedSize(540, 420);
     auto* infoLayout = new QVBoxLayout(info_);
-    infoLayout->addWidget(led("MODULE INFO", info_, 38));
-    auto* instruments = new QTableWidget(31, 2, info_);
-    instruments->setHorizontalHeaderLabels({"Instruments 1-15", "Instruments 16-31"});
-    instruments->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    instruments->verticalHeader()->hide();
-    instruments->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    infoLayout->addWidget(instruments);
-    infoLayout->addWidget(led("NO MODULE LOADED", info_, 65));
+    infoLayout->setContentsMargins(8,8,8,8);
+    infoLayout->setSpacing(4);
+    infoTitle_ = new QLabel("MODULE INFO", info_);
+    infoTitle_->setAlignment(Qt::AlignCenter);
+    infoTitle_->setFixedHeight(43);
+    infoTitle_->setStyleSheet(
+        "background:#031006;color:#00e935;border:3px inset #888;"
+        "font:bold 22px 'Courier New';");
+    infoLayout->addWidget(infoTitle_);
+    auto* instrHeading = new QLabel("Instruments",info_);
+    instrHeading->setAlignment(Qt::AlignCenter);
+    instrHeading->setFixedHeight(18);
+    instrHeading->setStyleSheet(
+        "background:#050a05;color:#42f142;border:2px inset #999;"
+        "font:bold 13px 'Courier New';");
+    infoLayout->addWidget(instrHeading);
+    infoTable_ = new QTableWidget(16,2,info_);
+    infoTable_->horizontalHeader()->hide();
+    infoTable_->verticalHeader()->hide();
+    infoTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    infoTable_->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    infoTable_->verticalHeader()->setDefaultSectionSize(17);
+    infoTable_->setSelectionMode(QAbstractItemView::SingleSelection);
+    infoTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    infoTable_->setShowGrid(false);
+    infoTable_->setFocusPolicy(Qt::NoFocus);
+    infoTable_->setStyleSheet(
+        "QTableWidget{background:#020802;color:#35ff38;border:3px inset #999;"
+        "font:bold 12px 'Courier New';}"
+        "QTableWidget::item{padding:0 3px;border-bottom:1px solid #394439;}"
+        "QTableWidget::item:selected{background:#15792d;color:#fff;}");
+    infoLayout->addWidget(infoTable_,1);
+    infoSummary_ = new QLabel("NO MODULE LOADED",info_);
+    infoSummary_->setAlignment(Qt::AlignCenter);
+    infoSummary_->setFixedHeight(55);
+    infoSummary_->setStyleSheet(
+        "background:#050a05;color:#31ff40;border:3px inset #999;"
+        "font:bold 12px 'Courier New';");
+    infoLayout->addWidget(infoSummary_);
+    refreshModuleInfo();
 
     effects_ = new EffectsWindow(this);
 
@@ -419,5 +451,47 @@ void ClassicPlayer::chooseTrack(const QString& path) {
     }
     display_->setTitle(audio_->moduleTitle().toUpper());
     effects_->setSnapshot(audio_->effectsSnapshot());
+    refreshModuleInfo();
     audio_->play();
+}
+
+void ClassicPlayer::refreshModuleInfo() {
+    if(!infoTitle_ || !infoTable_ || !infoSummary_ || !audio_) return;
+    const ModuleInfo data=audio_->moduleInfo();
+    infoTitle_->setText(data.title.isEmpty()?"MODULE INFO":data.title.toUpper());
+    const int total=data.names.size();
+    const int rows=qMax(16,(total+1)/2);
+    infoTable_->setRowCount(rows);
+    // Standard 31-slot files show 1..15 on the left, 16..31 on the right,
+    // matching the original panel rather than interleaving the columns.
+    const int split=total<=31?15:(total+1)/2;
+    for(int row=0;row<rows;++row) {
+        for(int col=0;col<2;++col) {
+            const int index=row+(col?split:0);
+            const bool valid=index<total && (col!=0 || index<split);
+            const QString text=valid?QString("%1 %2").arg(index+1,2).arg(data.names[index]):QString{};
+            auto* item=new QTableWidgetItem(text);
+            item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+            infoTable_->setItem(row,col,item);
+        }
+    }
+    if(data.filePath.isEmpty()) {
+        infoSummary_->setText("NO MODULE LOADED");
+        return;
+    }
+    const QString fmt=data.tracker.isEmpty()?data.format:data.tracker;
+    const QString format=fmt.isEmpty()?QStringLiteral("Tracker module"):fmt;
+    const int slots=total;
+    // Memory footprint of decompressed samples is not available from libopenmpt's
+    // public API, so do NOT invent a Mem figure.
+    const QString bytes=QString::number((data.fileBytes+1023)/1024);
+    const QString line1=QString("%1 channel %2 module with %3 %4")
+        .arg(data.channels).arg(format).arg(slots)
+        .arg(data.instrumentSlots>0?"instruments":"samples");
+    const QString line2=QString("File: %1 KB    Orders: %2")
+        .arg(bytes).arg(data.orderCount);
+    const QString line3=QString("%1 of %2 patterns referenced in sequence")
+        .arg(data.distinctPatternsInSequence).arg(data.patternCount);
+    infoSummary_->setText(line1+"\n"+line2+"\n"+line3);
+    infoSummary_->setToolTip(data.filePath);
 }
