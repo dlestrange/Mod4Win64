@@ -53,6 +53,14 @@ private:
     QLabel* infoSummary_ = nullptr;
     void refreshModuleInfo();
     void refreshInstrumentRows();
+    void showSampleDetails(int index);
+    void refreshSampleDetails();
+    QDialog* sampleDialog_ = nullptr;
+    QLabel* sampleValues_ = nullptr;
+    QLabel* sampleName_ = nullptr;
+    QLabel* sampleNumber_ = nullptr;
+    int sampleIndex_ = 0;
+    QString instrumentFilePath_;
     int instrumentScrollOffset_ = 0;
     QStringList instrumentNames_;
     EffectsWindow* effects_ = nullptr;
