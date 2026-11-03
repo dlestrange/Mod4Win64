@@ -461,16 +461,16 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     // of the two-row command bank: no staggered vertical alignment or
     // arbitrary button widths at different display scales.
     auto* controls = new QHBoxLayout();
-    controls->setSpacing(4);
+    // Match the LCD layout: left section, narrow dividing gap, right section.
+    controls->setSpacing(0);
     controls->setContentsMargins(0, 0, 0, 0);
     root->addLayout(controls);
     auto* transportRow = new QHBoxLayout();
     transportRow->setSpacing(2);
     transportRow->setContentsMargins(0,0,0,0);
-    // Divide at the same x-coordinate as the main LCD's status panel:
-    // 417/626 of the logical display width. A 2:1 split closely matches
-    // that boundary at our fixed player width, unlike the previous 7:4.
-    controls->addLayout(transportRow, 2);
+    // The transport keys end at logical x=408, like the lower LCD.
+    // The right command group starts at x=417, like the audio-status pane.
+    controls->addLayout(transportRow, 408);
     auto transport = [this, transportRow](const QString& symbol, bool enabled = true) {
         auto* button = actionButton(symbol, transportRow, this);
         button->setFixedHeight(58);
@@ -496,7 +496,8 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     commandGrid->setContentsMargins(0,0,0,0);
     commandGrid->setHorizontalSpacing(2);
     commandGrid->setVerticalSpacing(2);
-    controls->addLayout(commandGrid, 1);
+    controls->addSpacing(9);
+    controls->addLayout(commandGrid, 209);
     auto command = [this, commandGrid](const QString& name, int row, int col) {
         auto* button = new QPushButton(name, this);
         // Two 28px rows plus the 2px grid gap exactly match the
