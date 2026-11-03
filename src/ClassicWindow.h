@@ -48,6 +48,10 @@ private:
     ClassicDisplay* display_ = nullptr;
     JukeboxWindow* jukebox_ = nullptr;
     QDialog* info_ = nullptr;
+    QLabel* infoTitle_ = nullptr;
+    QTableWidget* infoTable_ = nullptr;
+    QLabel* infoSummary_ = nullptr;
+    void refreshModuleInfo();
     EffectsWindow* effects_ = nullptr;
     ModuleAudio* audio_ = nullptr;
     QPushButton* playButton_ = nullptr;
