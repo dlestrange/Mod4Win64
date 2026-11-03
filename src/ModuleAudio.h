@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <memory>
 #include <QVector>
+#include <QQueue>
 #include <atomic>
 struct EffectSnapshot {
  QString moduleIdentity;
@@ -82,6 +83,11 @@ private:
  bool playing_=false;
  bool paused_=false;
  bool finished_=false;
+ // Frame-stamped decoder states; presentation follows the audio sink clock.
+ struct TimedEffects { quint64 frame; EffectSnapshot state; };
+ QQueue<TimedEffects> effectHistory_;
+ EffectSnapshot presentedEffects_;
+ EffectSnapshot decoderSnapshot() const;
  std::atomic<quint64> decodedFrames_{0};
  std::atomic<quint64> nonzeroSamples_{0};
 };
