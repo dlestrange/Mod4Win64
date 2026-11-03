@@ -13,10 +13,15 @@ public:
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 private:
     QString title_ = "NO MODULE LOADED";
     QString filename_;
     bool showFilename_ = false;
+    int preampDb_ = 0; // Display-only until the audio preamp is connected.
+    bool draggingPreamp_ = false;
+    void setPreampFromY(qreal widgetY);
     QString state_ = "STOPPED";
     quint64 frames_ = 0;
     quint64 nonzero_ = 0;
