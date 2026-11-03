@@ -481,12 +481,12 @@ void ClassicPlayer::refreshModuleInfo() {
     }
     const QString fmt=data.tracker.isEmpty()?data.format:data.tracker;
     const QString format=fmt.isEmpty()?QStringLiteral("Tracker module"):fmt;
-    const int slots=total;
+    const int slotCount=total;
     // Memory footprint of decompressed samples is not available from libopenmpt's
     // public API, so do NOT invent a Mem figure.
     const QString bytes=QString::number((data.fileBytes+1023)/1024);
     const QString line1=QString("%1 channel %2 module with %3 %4")
-        .arg(data.channels).arg(format).arg(slots)
+        .arg(data.channels).arg(format).arg(slotCount)
         .arg(data.instrumentSlots>0?"instruments":"samples");
     const QString line2=QString("File: %1 KB    Orders: %2")
         .arg(bytes).arg(data.orderCount);
