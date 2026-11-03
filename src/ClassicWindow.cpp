@@ -322,14 +322,14 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     headingRow->addWidget(instrHeading,1);
     headingRow->addWidget(plus);
     infoLayout->addLayout(headingRow);
-    // Original + scrolls up, - scrolls down.
+    // Consistent with sample-details navigation: - goes back, + advances.
     connect(minus,&QPushButton::clicked,this,[this] {
-        instrumentScrollOffset_=qMin(instrumentScrollOffset_+1,
-                                     qMax(0,instrumentNames_.size()-31));
+        instrumentScrollOffset_=qMax(0,instrumentScrollOffset_-1);
         refreshInstrumentRows();
     });
     connect(plus,&QPushButton::clicked,this,[this] {
-        instrumentScrollOffset_=qMax(0,instrumentScrollOffset_-1);
+        instrumentScrollOffset_=qMin(instrumentScrollOffset_+1,
+                                     qMax(0,instrumentNames_.size()-31));
         refreshInstrumentRows();
     });
     infoTable_ = new QTableWidget(16,2,info_);
