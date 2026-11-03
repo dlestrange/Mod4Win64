@@ -241,12 +241,82 @@ EffectSnapshot ModuleAudio::decoderSnapshot() const {
  return result;
 }
 
+
+namespace {
+// FastTracker XM stores optional text-only instrument slots. Mod4Win's
+// "with N instruments" statistic counts slots containing actual sample data,
+// not all names. Parse headers defensively; never change playback data.
+int countXmPlayableInstruments(const QByteArray& bytes) {
+    if(bytes.size()<80 || !bytes.startsWith("Extended Module: ")) return -1;
+    const qsizetype length=bytes.size();
+    const auto u16=[&](qsizetype at)->quint32 {
+        if(at<0 || at>length-2) return 0;
+        const auto* p=reinterpret_cast<const unsigned char*>(bytes.constData()+at);
+        return quint32(p[0]) | (quint32(p[1])<<8);
+    };
+    const auto u32=[&](qsizetype at)->quint32 {
+        if(at<0 || at>length-4) return 0;
+        const auto* p=reinterpret_cast<const unsigned char*>(bytes.constData()+at);
+        return quint32(p[0]) | (quint32(p[1])<<8) |
+               (quint32(p[2])<<16) | (quint32(p[3])<<24);
+    };
+    const quint32 headerSize=u32(60);
+    const quint32 patterns=u16(70);
+    const quint32 instruments=u16(72);
+    if(headerSize<20 || patterns>2048 || instruments>512) return -1;
+    qsizetype pos=60+qsizetype(headerSize);
+    if(pos>length) return -1;
+    for(quint32 i=0;i<patterns;++i) {
+        if(pos>length-9) return -1;
+        const quint32 header=u32(pos);
+        const quint32 packed=u16(pos+7);
+        if(header<9 || qsizetype(header)>length-pos) return -1;
+        pos+=qsizetype(header);
+        if(qsizetype(packed)>length-pos) return -1;
+        pos+=qsizetype(packed);
+    }
+    int populated=0;
+    for(quint32 i=0;i<instruments;++i) {
+        if(pos>length-29) return -1;
+        const quint32 header=u32(pos);
+        const quint32 samples=u16(pos+27);
+        if(header<29 || header>4096 || samples>512 || qsizetype(header)>length-pos)
+            return -1;
+        const qsizetype sampleHeaders=pos+qsizetype(header);
+        if(samples==0) { pos=sampleHeaders; continue; }
+        if(header<33) return -1;
+        const quint32 sampleHeaderSize=u32(pos+29);
+        if(sampleHeaderSize<40 || sampleHeaderSize>1024 ||
+           qsizetype(samples)*sampleHeaderSize>length-sampleHeaders) return -1;
+        qsizetype sampleDataSize=0;
+        bool containsAudio=false;
+        for(quint32 j=0;j<samples;++j) {
+            const qsizetype sampleAt=sampleHeaders+qsizetype(j)*sampleHeaderSize;
+            const quint32 sampleBytes=u32(sampleAt);
+            if(sampleBytes>0) containsAudio=true;
+            if(qsizetype(sampleBytes)>length-sampleDataSize) return -1;
+            sampleDataSize+=qsizetype(sampleBytes);
+        }
+        const qsizetype next=sampleHeaders+qsizetype(samples)*sampleHeaderSize;
+        if(sampleDataSize>length-next) return -1;
+        pos=next+sampleDataSize;
+        if(containsAudio) ++populated;
+    }
+    return populated;
+}
+} // namespace
+
 ModuleInfo ModuleAudio::moduleInfo() const {
  ModuleInfo info;
  if(!module_) return info;
  info.title=title_;
  info.filePath=loadedPath_;
  info.fileBytes=QFileInfo(loadedPath_).size();
+ if(loadedPath_.endsWith(".xm",Qt::CaseInsensitive)) {
+   QFile source(loadedPath_);
+   if(source.open(QIODevice::ReadOnly))
+     info.playableInstrumentCount=countXmPlayableInstruments(source.readAll());
+ }
  info.channels=numChannels_?qBound(0,numChannels_(module_),256):0;
  info.instrumentSlots=numInstruments_?qBound(0,numInstruments_(module_),512):0;
  info.sampleSlots=numSamples_?qBound(0,numSamples_(module_),512):0;
