@@ -467,10 +467,13 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* transportRow = new QHBoxLayout();
     transportRow->setSpacing(2);
     transportRow->setContentsMargins(0,0,0,0);
-    controls->addLayout(transportRow, 7);
+    // Divide at the same x-coordinate as the main LCD's status panel:
+    // 417/626 of the logical display width. A 2:1 split closely matches
+    // that boundary at our fixed player width, unlike the previous 7:4.
+    controls->addLayout(transportRow, 2);
     auto transport = [this, transportRow](const QString& symbol, bool enabled = true) {
         auto* button = actionButton(symbol, transportRow, this);
-        button->setFixedHeight(46);
+        button->setFixedHeight(58);
         button->setMinimumWidth(30);
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         button->setStyleSheet(
@@ -493,10 +496,16 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     commandGrid->setContentsMargins(0,0,0,0);
     commandGrid->setHorizontalSpacing(2);
     commandGrid->setVerticalSpacing(2);
-    controls->addLayout(commandGrid, 4);
+    controls->addLayout(commandGrid, 1);
     auto command = [this, commandGrid](const QString& name, int row, int col) {
         auto* button = new QPushButton(name, this);
-        button->setFixedHeight(22);
+        // Two 28px rows plus the 2px grid gap exactly match the
+        // 58px-high transport keys, including the top and bottom edges.
+        button->setStyleSheet(
+            "QPushButton {background:#c0c0c0;border:2px outset #f0f0f0;"
+            "padding:0px;min-height:0px;}"
+            "QPushButton:pressed {border:2px inset #f0f0f0;}");
+        button->setFixedHeight(28);
         button->setMinimumWidth(42);
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         commandGrid->addWidget(button, row, col);
