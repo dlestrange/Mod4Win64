@@ -38,7 +38,7 @@ public:
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
- EffectSnapshot effectsSnapshot() const;
+ EffectSnapshot effectsSnapshot();
  bool isSequential() const override { return true; }
  qint64 readData(char* data, qint64 maxlen) override;
  quint64 decodedFrames() const { return decodedFrames_.load(); }
