@@ -289,38 +289,64 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     info_->setWindowTitle("MOD4WIN [2.40 Last Beta] Module Info");
     info_->setWindowFlags(Qt::Window);
     info_->setStyleSheet(classicStyle);
-    info_->setFixedSize(540, 420);
+    info_->setFixedSize(540, 410);
     auto* infoLayout = new QVBoxLayout(info_);
     infoLayout->setContentsMargins(8,8,8,8);
     infoLayout->setSpacing(4);
     infoTitle_ = new QLabel("MODULE INFO", info_);
     infoTitle_->setAlignment(Qt::AlignCenter);
-    infoTitle_->setFixedHeight(43);
+    infoTitle_->setFixedHeight(38);
     infoTitle_->setStyleSheet(
         "background:#031006;color:#00e935;border:3px inset #888;"
         "font:bold 22px 'Courier New';");
     infoLayout->addWidget(infoTitle_);
+    // Compact heading with authentic scroll buttons at either edge.
+    auto* headingRow = new QHBoxLayout();
+    headingRow->setSpacing(0);
+    auto* minus = new QPushButton("-",info_);
+    auto* plus = new QPushButton("+",info_);
+    for(auto* control : {minus,plus}) {
+        control->setFixedSize(19,18);
+        control->setStyleSheet("QPushButton{background:#c0c0c0;color:#167c20;"
+                               "font:bold 12px Tahoma;border:2px outset #eee;padding:0;}"
+                               "QPushButton:pressed{border:2px inset #eee;}");
+    }
     auto* instrHeading = new QLabel("Instruments",info_);
     instrHeading->setAlignment(Qt::AlignCenter);
     instrHeading->setFixedHeight(18);
     instrHeading->setStyleSheet(
         "background:#050a05;color:#42f142;border:2px inset #999;"
         "font:bold 13px 'Courier New';");
-    infoLayout->addWidget(instrHeading);
+    headingRow->addWidget(minus);
+    headingRow->addWidget(instrHeading,1);
+    headingRow->addWidget(plus);
+    infoLayout->addLayout(headingRow);
+    // Original + scrolls up, - scrolls down.
+    connect(minus,&QPushButton::clicked,this,[this] {
+        instrumentScrollOffset_=qMin(instrumentScrollOffset_+1,
+                                     qMax(0,instrumentNames_.size()-31));
+        refreshInstrumentRows();
+    });
+    connect(plus,&QPushButton::clicked,this,[this] {
+        instrumentScrollOffset_=qMax(0,instrumentScrollOffset_-1);
+        refreshInstrumentRows();
+    });
     infoTable_ = new QTableWidget(16,2,info_);
     infoTable_->horizontalHeader()->hide();
     infoTable_->verticalHeader()->hide();
     infoTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     infoTable_->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
-    infoTable_->verticalHeader()->setDefaultSectionSize(17);
+    infoTable_->verticalHeader()->setDefaultSectionSize(16);
     infoTable_->setSelectionMode(QAbstractItemView::SingleSelection);
+    infoTable_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    infoTable_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     infoTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     infoTable_->setShowGrid(false);
     infoTable_->setFocusPolicy(Qt::NoFocus);
     infoTable_->setStyleSheet(
         "QTableWidget{background:#020802;color:#35ff38;border:3px inset #999;"
-        "font:bold 12px 'Courier New';}"
-        "QTableWidget::item{padding:0 3px;border-bottom:1px solid #394439;}"
+        "font:bold 11px 'Courier New';}"
+        "QTableWidget::item{padding:0 2px;border-bottom:1px solid #394439;}"
         "QTableWidget::item:selected{background:#15792d;color:#fff;}");
     infoLayout->addWidget(infoTable_,1);
     infoSummary_ = new QLabel("NO MODULE LOADED",info_);
@@ -459,29 +485,17 @@ void ClassicPlayer::refreshModuleInfo() {
     if(!infoTitle_ || !infoTable_ || !infoSummary_ || !audio_) return;
     const ModuleInfo data=audio_->moduleInfo();
     infoTitle_->setText(data.title.isEmpty()?"MODULE INFO":data.title.toUpper());
-    const int total=data.names.size();
-    const int rows=qMax(16,(total+1)/2);
-    infoTable_->setRowCount(rows);
-    // Standard 31-slot files show 1..15 on the left, 16..31 on the right,
-    // matching the original panel rather than interleaving the columns.
-    const int split=total<=31?15:(total+1)/2;
-    for(int row=0;row<rows;++row) {
-        for(int col=0;col<2;++col) {
-            const int index=row+(col?split:0);
-            const bool valid=index<total && (col!=0 || index<split);
-            const QString text=valid?QString("%1 %2").arg(index+1,2).arg(data.names[index]):QString{};
-            auto* item=new QTableWidgetItem(text);
-            item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-            infoTable_->setItem(row,col,item);
-        }
-    }
+    instrumentNames_=data.names;
+    instrumentScrollOffset_=0;
+    refreshInstrumentRows();
     if(data.filePath.isEmpty()) {
         infoSummary_->setText("NO MODULE LOADED");
         return;
     }
     const QString fmt=data.tracker.isEmpty()?data.format:data.tracker;
     const QString format=fmt.isEmpty()?QStringLiteral("Tracker module"):fmt;
-    const int slotCount=total;
+    const int slotCount=data.playableInstrumentCount>=0
+        ?data.playableInstrumentCount:instrumentNames_.size();
     // Memory footprint of decompressed samples is not available from libopenmpt's
     // public API, so do NOT invent a Mem figure.
     const QString bytes=QString::number((data.fileBytes+1023)/1024);
@@ -494,4 +508,23 @@ void ClassicPlayer::refreshModuleInfo() {
         .arg(data.distinctPatternsInSequence).arg(data.patternCount);
     infoSummary_->setText(line1+"\n"+line2+"\n"+line3);
     infoSummary_->setToolTip(data.filePath);
+}
+
+void ClassicPlayer::refreshInstrumentRows() {
+    if(!infoTable_) return;
+    infoTable_->setRowCount(16);
+    // Original viewport: 1–15 at left, 16–31 at right; additional names
+    // scroll through the same fixed two-column window.
+    for(int row=0;row<16;++row) {
+        for(int col=0;col<2;++col) {
+            const int index=instrumentScrollOffset_+row+(col?15:0);
+            const bool valid=(col==1 || row<15) && index<instrumentNames_.size();
+            const QString value=valid
+                ?QString("%1 %2").arg(index+1,2).arg(instrumentNames_.at(index))
+                :QString{};
+            auto* item=new QTableWidgetItem(value);
+            item->setFlags(Qt::ItemIsEnabled|Qt::ItemIsSelectable);
+            infoTable_->setItem(row,col,item);
+        }
+    }
 }
