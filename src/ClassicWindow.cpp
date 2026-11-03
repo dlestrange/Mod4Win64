@@ -280,7 +280,7 @@ void JukeboxWindow::updateCount() {
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setWindowTitle("Mod4Win64 2026 Beta");
-    setFixedSize(650, 225);
+    setFixedSize(650, 195);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
@@ -425,13 +425,20 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* header = new QHBoxLayout();
     header->setSpacing(2);
     auto* appName = new QLabel("MOD4WIN64", this);
-    appName->setStyleSheet("font:bold 10px Tahoma;color:#333;");
+    // Deliberate Mod4Win64 identity: a bold, extended heading on the
+    // original-style Setup/Help toolbar, rather than another LCD row.
+    QFont branding("Arial", 16, QFont::Black);
+    branding.setStretch(130);
+    branding.setLetterSpacing(QFont::AbsoluteSpacing, 1.2);
+    appName->setFont(branding);
+    appName->setStyleSheet("color:#194d26;");
+    appName->setFixedHeight(27);
     header->addWidget(appName);
     header->addStretch();
     auto* setupButton = new QPushButton("Setup", this);
     auto* helpButton = new QPushButton("Help", this);
-    setupButton->setFixedHeight(20);
-    helpButton->setFixedHeight(20);
+    setupButton->setFixedSize(54,24);
+    helpButton->setFixedSize(54,24);
     header->addWidget(setupButton);
     header->addWidget(helpButton);
     root->addLayout(header);
@@ -450,21 +457,27 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     display_ = new ClassicDisplay(this);
     root->addWidget(display_, 1);
 
-    // Original Mod4Win layout: seven transport buttons on the left;
-    // two rows of four command buttons on the right.
+    // One compact control strip. The transport keys occupy the full height
+    // of the two-row command bank: no staggered vertical alignment or
+    // arbitrary button widths at different display scales.
     auto* controls = new QHBoxLayout();
-    controls->setSpacing(3);
+    controls->setSpacing(4);
     controls->setContentsMargins(0, 0, 0, 0);
     root->addLayout(controls);
     auto* transportRow = new QHBoxLayout();
-    transportRow->setSpacing(1);
+    transportRow->setSpacing(2);
+    transportRow->setContentsMargins(0,0,0,0);
     controls->addLayout(transportRow, 7);
     auto transport = [this, transportRow](const QString& symbol, bool enabled = true) {
         auto* button = actionButton(symbol, transportRow, this);
-        button->setFixedHeight(25);
-        button->setMinimumWidth(28);
-        button->setStyleSheet("QPushButton {color:#008e21;font:bold 17px Arial;"
-                              "background:#c0c0c0;border:2px outset #eee;padding:0;}");
+        button->setFixedHeight(46);
+        button->setMinimumWidth(30);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        button->setStyleSheet(
+            "QPushButton {color:#008e21;font:bold 17px Arial;"
+            "background:#c0c0c0;border:2px outset #eee;padding:0;}"
+            "QPushButton:pressed {border:2px inset #eee;}"
+            "QPushButton:disabled {color:#40864e;}");
         button->setEnabled(enabled);
         return button;
     };
@@ -477,14 +490,15 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     transport("▶|", false);
 
     auto* commandGrid = new QGridLayout();
-    commandGrid->setContentsMargins(0, 0, 0, 0);
-    commandGrid->setHorizontalSpacing(1);
-    commandGrid->setVerticalSpacing(1);
+    commandGrid->setContentsMargins(0,0,0,0);
+    commandGrid->setHorizontalSpacing(2);
+    commandGrid->setVerticalSpacing(2);
     controls->addLayout(commandGrid, 4);
     auto command = [this, commandGrid](const QString& name, int row, int col) {
         auto* button = new QPushButton(name, this);
-        button->setFixedHeight(23);
-        button->setMinimumWidth(39);
+        button->setFixedHeight(22);
+        button->setMinimumWidth(42);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         commandGrid->addWidget(button, row, col);
         return button;
     };
