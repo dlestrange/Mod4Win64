@@ -288,9 +288,34 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
         {"1100011","1110111","1111111","1101011","1100011"}, // M
         {"1111110","1100011","1111110","1100000","1100000"}  // P
     };
-    // Draw the movable recessed bar first so the fixed coloured letters
-    // cover it wherever their pixels overlap. The slider never recolours
-    // or brightens the letters.
+    // The original has TWO moving visuals: a narrow white handle AND a
+    // conspicuous illuminated band running behind the coloured PREAMP
+    // lettering. Earlier revisions drew only the handle, leaving the black
+    // spaces between letters unlit. Build the backlight in the background
+    // first, then overlay the handle, then paint fixed-colour glyphs last.
+    //
+    // The 12px bar changes from warm red/yellow near the top of the scale
+    // to vivid green through the middle, following the original colour key.
+    // It does not modify the fixed colours of any letter pixels.
+    const QRect letterArea(584,5,36,67);
+    p.save();
+    p.setClipRect(letterArea);
+    for(int dy=0;dy<12;++dy) {
+        const int y=markerY+2+dy;
+        const qreal position=qBound(0.0,(y-5.0)/66.0,1.0);
+        QColor band;
+        if(position<0.22) band=QColor("#e74710");
+        else if(position<0.39) band=QColor("#e7d018");
+        else if(position<0.70) band=QColor("#22e91f");
+        else if(position<0.84) band=QColor("#b2a01a");
+        else band=QColor("#bb2018");
+        // Bright core with slightly darker edges makes the luminous strip
+        // read as a band rather than a second piece of lettering.
+        if(dy==0 || dy==11) band=band.darker(170);
+        p.fillRect(585,y,33,1,band);
+    }
+    p.restore();
+    // Small recessed silver handle across the top edge of the backlight.
     p.fillRect(581,markerY-3,39,7,QColor("#777777"));
     p.fillRect(582,markerY-2,37,5,QColor("#e6e6e6"));
     p.fillRect(583,markerY-1,35,3,QColor("#ffffff"));
