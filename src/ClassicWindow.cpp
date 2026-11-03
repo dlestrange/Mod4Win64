@@ -502,10 +502,12 @@ void ClassicPlayer::refreshModuleInfo() {
     const QString line1=QString("%1 channel %2 module with %3 %4")
         .arg(data.channels).arg(format).arg(slotCount)
         .arg(data.instrumentSlots>0?"instruments":"samples");
-    const QString line2=QString("File: %1 KB    Orders: %2")
+    const QString line2=QString("File: %1 KB    Patterns: %2")
         .arg(bytes).arg(data.orderCount);
-    const QString line3=QString("%1 of %2 patterns referenced in sequence")
-        .arg(data.distinctPatternsInSequence).arg(data.patternCount);
+    // Mod4Win compares distinct pattern references with the sequence length,
+    // not with the number of stored patterns (which may include unused slots).
+    const QString line3=QString("%1 of %2 patterns are different.")
+        .arg(data.distinctPatternsInSequence).arg(data.orderCount);
     infoSummary_->setText(line1+"\n"+line2+"\n"+line3);
     infoSummary_->setToolTip(data.filePath);
 }
