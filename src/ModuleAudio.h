@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <memory>
 #include <QVector>
+#include <QStringList>
 #include <QQueue>
 #include <atomic>
 struct EffectSnapshot {
@@ -24,6 +25,21 @@ struct EffectSnapshot {
  QVector<float> vuRight;
 };
 
+struct ModuleInfo {
+ QString title;
+ QString format;
+ QString tracker;
+ QString filePath;
+ qint64 fileBytes = 0;
+ int channels = 0;
+ int instrumentSlots = 0;
+ int sampleSlots = 0;
+ int patternCount = 0;
+ int orderCount = 0;
+ int distinctPatternsInSequence = 0;
+ QStringList names;
+};
+
 class ModuleAudio final : public QIODevice {
  Q_OBJECT
 public:
@@ -38,6 +54,7 @@ public:
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
+ ModuleInfo moduleInfo() const;
  EffectSnapshot effectsSnapshot();
  bool isSequential() const override { return true; }
  qint64 readData(char* data, qint64 maxlen) override;
@@ -59,11 +76,16 @@ private:
  using PatternRowsFn = int32_t(*)(void*,int32_t);
  using PatternCommandFn = uint8_t(*)(void*,int32_t,int32_t,int32_t,int);
  using VuFn = float(*)(void*,int32_t);
+ using IndexedNameFn = const char*(*)(void*,int32_t);
+ using OrderPatternFn = int32_t(*)(void*,int32_t);
  IntFn numChannels_=nullptr, numPatterns_=nullptr, currentSpeed_=nullptr,
        currentTempo_=nullptr, currentPattern_=nullptr, currentRow_=nullptr;
  PatternRowsFn patternRows_=nullptr;
  PatternCommandFn patternCommand_=nullptr;
  VuFn vuLeft_=nullptr, vuRight_=nullptr;
+ IntFn numInstruments_=nullptr, numSamples_=nullptr, numOrders_=nullptr;
+ IndexedNameFn instrumentName_=nullptr, sampleName_=nullptr;
+ OrderPatternFn orderPattern_=nullptr;
  QVector<int> usedCommands_;
  QLibrary library_;
  CreateFn create_=nullptr;
