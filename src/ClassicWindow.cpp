@@ -534,7 +534,10 @@ void ClassicPlayer::chooseTrack(const QString& path) {
         QMessageBox::warning(this, "Cannot open module", error);
         return;
     }
-    display_->setTitle(audio_->moduleTitle().toUpper());
+    // The original title LCD can switch between the module's embedded title
+    // and the on-disk filename. Keep both available after load.
+    display_->setModuleNames(audio_->moduleTitle(),
+                             QFileInfo(path).completeBaseName());
     effects_->setSnapshot(audio_->effectsSnapshot());
     refreshModuleInfo();
     audio_->play();
