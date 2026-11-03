@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <QSet>
 
 ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {
  pumpTimer_.setInterval(10);
@@ -33,6 +34,12 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
    numChannels_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_channels"));
    numPatterns_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_patterns"));
+   numInstruments_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_instruments"));
+   numSamples_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_samples"));
+   numOrders_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_orders"));
+   instrumentName_=reinterpret_cast<IndexedNameFn>(library_.resolve("openmpt_module_get_instrument_name"));
+   sampleName_=reinterpret_cast<IndexedNameFn>(library_.resolve("openmpt_module_get_sample_name"));
+   orderPattern_=reinterpret_cast<OrderPatternFn>(library_.resolve("openmpt_module_get_order_pattern"));
    currentSpeed_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_speed"));
    currentTempo_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_tempo"));
    currentPattern_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_pattern"));
@@ -232,4 +239,49 @@ EffectSnapshot ModuleAudio::decoderSnapshot() const {
    if(vuRight_) result.vuRight[ch]=qBound(0.0f,vuRight_(module_,ch),1.0f);
  }
  return result;
+}
+
+ModuleInfo ModuleAudio::moduleInfo() const {
+ ModuleInfo info;
+ if(!module_) return info;
+ info.title=title_;
+ info.filePath=loadedPath_;
+ info.fileBytes=QFileInfo(loadedPath_).size();
+ info.channels=numChannels_?qBound(0,numChannels_(module_),256):0;
+ info.instrumentSlots=numInstruments_?qBound(0,numInstruments_(module_),512):0;
+ info.sampleSlots=numSamples_?qBound(0,numSamples_(module_),512):0;
+ info.patternCount=numPatterns_?qBound(0,numPatterns_(module_),2048):0;
+ info.orderCount=numOrders_?qBound(0,numOrders_(module_),4096):0;
+ auto metadataValue=[this](const char* key)->QString {
+   if(!metadata_ || !freeString_) return {};
+   const char* ptr=metadata_(module_,key);
+   if(!ptr) return {};
+   const QString result=QString::fromUtf8(ptr).trimmed();
+   freeString_(ptr);
+   return result;
+ };
+ info.format=metadataValue("type_long");
+ info.tracker=metadataValue("tracker");
+ // XM and IT have a separate instrument layer. S3M and MOD conventionally
+ // store names in sample slots; do not discard text used as composer notes.
+ const bool useInstruments=info.instrumentSlots>0 && instrumentName_;
+ const int count=useInstruments?info.instrumentSlots:info.sampleSlots;
+ const IndexedNameFn getName=useInstruments?instrumentName_:sampleName_;
+ for(int i=0;i<count;++i) {
+   QString name;
+   if(getName && freeString_) {
+     const char* p=getName(module_,i);
+     if(p) { name=QString::fromUtf8(p); freeString_(p); }
+   }
+   info.names.append(name);
+ }
+ if(orderPattern_) {
+   QSet<int> distinct;
+   for(int order=0;order<info.orderCount;++order) {
+     const int pat=orderPattern_(module_,order);
+     if(pat>=0 && pat<info.patternCount) distinct.insert(pat);
+   }
+   info.distinctPatternsInSequence=distinct.size();
+ }
+ return info;
 }
