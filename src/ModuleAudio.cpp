@@ -102,6 +102,8 @@ void ModuleAudio::play() {
  finished_=false;
  decodedFrames_=0;
  nonzeroSamples_=0;
+ effectHistory_.clear();
+ presentedEffects_=decoderSnapshot();
  playing_=true; paused_=false;
  pending_.clear();
  connect(sink_.get(), &QAudioSink::stateChanged, this, [this](QAudio::State state) {
@@ -155,6 +157,8 @@ void ModuleAudio::pauseResume() {
 void ModuleAudio::stop() {
  playing_=false; paused_=false;
  pumpTimer_.stop(); pending_.clear(); outputDevice_=nullptr;
+ effectHistory_.clear();
+ presentedEffects_=EffectSnapshot{};
  if(sink_) { sink_->stop(); sink_.reset(); }
  if(isOpen()) close();
  if (module_ && seek_) seek_(module_,0.0);
@@ -170,7 +174,11 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
    finished_=true;
    QMetaObject::invokeMethod(this,[this] { emit endOfModule(); stop(); },Qt::QueuedConnection);
  }
- decodedFrames_.fetch_add(produced);
+ const quint64 firstFrame=decodedFrames_.fetch_add(produced);
+ // Capture the actual decoder state for each generated PCM block. The state
+ // reflects the END of this block; we associate it with the block's first
+ // frame, which keeps the visual approximation within one 1024-frame chunk.
+ if(produced>0) effectHistory_.enqueue({firstFrame,decoderSnapshot()});
  quint64 audible = 0;
  const auto* samples = reinterpret_cast<const int16_t*>(data);
  for (size_t i = 0; i < produced * 2; ++i) {
@@ -180,7 +188,22 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
  return static_cast<qint64>(produced*4);
 }
 
-EffectSnapshot ModuleAudio::effectsSnapshot() const {
+EffectSnapshot ModuleAudio::effectsSnapshot() {
+ // QAudioSink::processedUSecs reports how much audio has passed through its
+ // backend since start, excluding suspended time. Unlike decoder position,
+ // this clock follows the sound being rendered instead of queued PCM.
+ if (sink_ && playing_ && !effectHistory_.isEmpty()) {
+   const qint64 us=std::max<qint64>(0,sink_->processedUSecs());
+   const quint64 played=static_cast<quint64>(us)*48000ULL/1000000ULL;
+   while (!effectHistory_.isEmpty() && effectHistory_.head().frame<=played)
+     presentedEffects_=effectHistory_.dequeue().state;
+   return presentedEffects_;
+ }
+ if (sink_ && playing_) return presentedEffects_;
+ return decoderSnapshot();
+}
+
+EffectSnapshot ModuleAudio::decoderSnapshot() const {
  EffectSnapshot result;
  if (!module_ || !numChannels_) return result;
  result.moduleIdentity=loadedPath_;
