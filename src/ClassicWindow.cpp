@@ -3,6 +3,7 @@
 #include "ClassicDisplay.h"
 #include "SetupDialog.h"
 #include "EffectsWindow.h"
+#include "SampleDetails.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -356,6 +357,63 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         "background:#050a05;color:#31ff40;border:3px inset #999;"
         "font:bold 12px 'Courier New';");
     infoLayout->addWidget(infoSummary_);
+    // The original opens a small sample-inspection window when an item is selected.
+    sampleDialog_ = new QDialog(info_);
+    sampleDialog_->setWindowTitle("Instruments");
+    sampleDialog_->setWindowFlags(Qt::Window);
+    sampleDialog_->setStyleSheet(classicStyle);
+    sampleDialog_->setFixedSize(260, 205);
+    auto* sampleRoot = new QVBoxLayout(sampleDialog_);
+    sampleRoot->setContentsMargins(6,5,6,5);
+    sampleRoot->setSpacing(3);
+    sampleValues_ = new QLabel(sampleDialog_);
+    sampleValues_->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+    sampleValues_->setFixedHeight(131);
+    sampleValues_->setStyleSheet(
+        "background:#c0c0c0;color:#101010;font:bold 12px 'Courier New';"
+        "border:2px inset #eee;padding:3px;");
+    sampleRoot->addWidget(sampleValues_);
+    auto* sampleNav = new QHBoxLayout();
+    sampleNav->setSpacing(2);
+    auto* samplePrev = new QPushButton("-",sampleDialog_);
+    auto* sampleNext = new QPushButton("+",sampleDialog_);
+    sampleNumber_ = new QLabel("001",sampleDialog_);
+    sampleNumber_->setAlignment(Qt::AlignCenter);
+    sampleNumber_->setStyleSheet(
+        "background:#041006;color:#3aff45;font:bold 12px 'Courier New';"
+        "border:2px inset #888;");
+    for(auto* control : {samplePrev,sampleNext}) {
+        control->setFixedSize(22,21);
+        control->setStyleSheet(
+            "QPushButton{background:#c0c0c0;color:#148126;"
+            "font:bold 13px Tahoma;border:2px outset #eee;padding:0;}"
+            "QPushButton:pressed{border:2px inset #eee;}");
+    }
+    sampleNav->addStretch();
+    sampleNav->addWidget(new QLabel("MOD4WIN",sampleDialog_));
+    sampleNav->addStretch();
+    sampleNav->addWidget(samplePrev);
+    sampleNav->addWidget(sampleNumber_);
+    sampleNav->addWidget(sampleNext);
+    sampleRoot->addLayout(sampleNav);
+    sampleName_ = new QLabel(sampleDialog_);
+    sampleName_->setAlignment(Qt::AlignCenter);
+    sampleName_->setStyleSheet("background:#c0c0c0;color:#101010;"
+                               "font:bold 11px 'Courier New';border:2px inset #888;");
+    sampleRoot->addWidget(sampleName_);
+    connect(samplePrev,&QPushButton::clicked,this,[this]{
+        if(sampleIndex_>0) { --sampleIndex_; refreshSampleDetails(); }
+    });
+    connect(sampleNext,&QPushButton::clicked,this,[this]{
+        if(sampleIndex_+1<instrumentNames_.size()) {
+            ++sampleIndex_; refreshSampleDetails();
+        }
+    });
+    connect(infoTable_,&QTableWidget::cellClicked,this,[this](int row,int col){
+        const int index=instrumentScrollOffset_+row+(col?15:0);
+        if((col==0 && row>=15) || index<0 || index>=instrumentNames_.size()) return;
+        showSampleDetails(index);
+    });
     refreshModuleInfo();
 
     effects_ = new EffectsWindow(this);
@@ -486,6 +544,8 @@ void ClassicPlayer::refreshModuleInfo() {
     const ModuleInfo data=audio_->moduleInfo();
     infoTitle_->setText(data.title.isEmpty()?"MODULE INFO":data.title.toUpper());
     instrumentNames_=data.names;
+    instrumentFilePath_=data.filePath;
+    if(sampleDialog_ && sampleDialog_->isVisible()) sampleDialog_->hide();
     instrumentScrollOffset_=0;
     refreshInstrumentRows();
     if(data.filePath.isEmpty()) {
@@ -529,4 +589,42 @@ void ClassicPlayer::refreshInstrumentRows() {
             infoTable_->setItem(row,col,item);
         }
     }
+}
+
+void ClassicPlayer::showSampleDetails(int index) {
+    if(!sampleDialog_ || index<0 || index>=instrumentNames_.size()) return;
+    sampleIndex_=index;
+    refreshSampleDetails();
+    sampleDialog_->show();
+    sampleDialog_->raise();
+    sampleDialog_->activateWindow();
+}
+
+void ClassicPlayer::refreshSampleDetails() {
+    if(!sampleValues_ || !sampleName_ || !sampleNumber_) return;
+    if(sampleIndex_<0 || sampleIndex_>=instrumentNames_.size()) return;
+    const SampleDetails data=SampleInspection::inspect(instrumentFilePath_,sampleIndex_);
+    sampleNumber_->setText(QString("%1").arg(sampleIndex_+1,3,10,QChar('0')));
+    sampleName_->setText(instrumentNames_.at(sampleIndex_));
+    if(!data.supported || !data.hasSample) {
+        sampleValues_->setText(data.explanation.isEmpty()
+            ?QStringLiteral("No PCM sample data"):data.explanation);
+        return;
+    }
+    // Sample 1 is shown for multi-sample XM instruments. Additional samples
+    // can be supported in a future version without inventing sample values.
+    QString text=QString(
+        "Length       : %1\n"
+        "Loop start   : %2\n"
+        "Loop length  : %3\n"
+        "Fine tune    : %4\n"
+        "Def. volume  : %5\n"
+        "Resolution   : %6 bit\n"
+        "C-2 Tuning  : %7 Hz")
+        .arg(data.length).arg(data.loopStart).arg(data.loopLength)
+        .arg(data.fineTune).arg(data.defaultVolume)
+        .arg(data.resolution).arg(data.c2Tuning);
+    if(data.sampleCount>1)
+        text+="\n(first of "+QString::number(data.sampleCount)+" samples)";
+    sampleValues_->setText(text);
 }
