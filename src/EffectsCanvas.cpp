@@ -95,6 +95,8 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     p.rotate(-90);
     p.drawText(0,0,"Effects");
     p.restore();
+    // Original Mod4Win labels the small recessed channel-number heading.
+    p.drawText(QRect(7,64,17,11),Qt::AlignCenter,"Chn");
 
     // These names follow common libopenmpt effect command IDs. An exact
     // original-era category mapping remains a separate compatibility pass.
@@ -172,15 +174,25 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
                 snapshot_.currentCommands[ch]==snapshot_.usedCommands[col];
             p.fillRect(cell.adjusted(1,1,-1,-1),active?QColor("#4fff50"):QColor("#238b2e"));
         }
-        const int note=ch<heldNotes_.size()?heldNotes_[ch]:0;
-        const int inst=ch<heldInstruments_.size()?heldInstruments_[ch]:0;
+        // A channel remains visible while EITHER stereo side has a lit bar.
+        // Only hide note + instrument when BOTH sides have gone dark (AND).
+        // Use exactly the same eight-segment quantisation as the meters below,
+        // so the text cannot linger after the last visual bar disappears.
+        const auto barCount=[](float level)->int {
+            const float safe=std::isfinite(level)?std::clamp(level,0.0f,1.0f):0.0f;
+            return static_cast<int>(std::lround(safe*8.0f));
+        };
+        const float left=ch<snapshot_.vuLeft.size()?snapshot_.vuLeft[ch]:0.0f;
+        const float right=ch<snapshot_.vuRight.size()?snapshot_.vuRight[ch]:0.0f;
+        const bool channelActive=(barCount(left)>0 || barCount(right)>0);
+        const int note=channelActive && ch<heldNotes_.size()?heldNotes_[ch]:0;
+        const int inst=channelActive && ch<heldInstruments_.size()?heldInstruments_[ch]:0;
         p.setPen(QColor("#161616"));
         p.drawText(QRect(w-89,y,17,8),Qt::AlignCenter,noteLabel(note));
         const int centre=w-49;
         const auto meter=[&](bool left,float level) {
             constexpr int segments=8, step=2;
-            const float safe=std::isfinite(level)?std::clamp(level,0.0f,1.0f):0.0f;
-            const int lit=static_cast<int>(std::lround(safe*segments));
+            const int lit=barCount(level);
             for(int i=0;i<segments;++i) {
                 const int x=left?centre-2-(i+1)*step:centre+2+i*step;
                 p.fillRect(x,y,step,8,QColor("#080808"));
@@ -191,8 +203,8 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
                 }
             }
         };
-        meter(true,ch<snapshot_.vuLeft.size()?snapshot_.vuLeft[ch]:0);
-        meter(false,ch<snapshot_.vuRight.size()?snapshot_.vuRight[ch]:0);
+        meter(true,left);
+        meter(false,right);
         p.fillRect(centre,y,1,8,QColor("#b0b0b0"));
         p.setPen(QColor("#111111"));
         p.drawText(QRect(w-25,y,16,8),Qt::AlignCenter,inst?QString::number(inst):"---");
