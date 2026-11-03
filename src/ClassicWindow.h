@@ -52,6 +52,9 @@ private:
     QTableWidget* infoTable_ = nullptr;
     QLabel* infoSummary_ = nullptr;
     void refreshModuleInfo();
+    void refreshInstrumentRows();
+    int instrumentScrollOffset_ = 0;
+    QStringList instrumentNames_;
     EffectsWindow* effects_ = nullptr;
     ModuleAudio* audio_ = nullptr;
     QPushButton* playButton_ = nullptr;
