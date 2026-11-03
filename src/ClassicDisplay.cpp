@@ -288,37 +288,35 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
         {"1100011","1110111","1111111","1101011","1100011"}, // M
         {"1111110","1100011","1111110","1100000","1100000"}  // P
     };
-    // The original has TWO moving visuals: a narrow white handle AND a
-    // conspicuous illuminated band running behind the coloured PREAMP
-    // lettering. Earlier revisions drew only the handle, leaving the black
-    // spaces between letters unlit. Build the backlight in the background
-    // first, then overlay the handle, then paint fixed-colour glyphs last.
-    //
-    // The 12px bar changes from warm red/yellow near the top of the scale
-    // to vivid green through the middle, following the original colour key.
-    // It does not modify the fixed colours of any letter pixels.
-    const QRect letterArea(584,5,36,67);
+    // The original uses a ZERO-CENTRED LEVEL FILL, not a travelling
+    // backlight strip. At positive gain the region between the centre and
+    // slider lights UP; at negative gain it lights DOWN. At 0 dB there is no
+    // illuminated region. Colours belong to fixed positions in the scale,
+    // and the PREAMP letters are always drawn in their original colours.
+    const int zeroY=trackTop+
+        int(std::lround(20.0*trackTravel/40.0));
+    const int fillTop=std::min(markerY,zeroY);
+    const int fillBottom=std::max(markerY,zeroY);
     p.save();
-    p.setClipRect(letterArea);
-    for(int dy=0;dy<12;++dy) {
-        const int y=markerY+2+dy;
-        const qreal position=qBound(0.0,(y-5.0)/66.0,1.0);
+    p.setClipRect(QRect(584,5,36,67));
+    for(int y=fillTop;y<fillBottom;++y) {
         QColor band;
-        if(position<0.22) band=QColor("#e74710");
-        else if(position<0.39) band=QColor("#e7d018");
-        else if(position<0.70) band=QColor("#22e91f");
-        else if(position<0.84) band=QColor("#b2a01a");
-        else band=QColor("#bb2018");
-        // Bright core with slightly darker edges makes the luminous strip
-        // read as a band rather than a second piece of lettering.
-        if(dy==0 || dy==11) band=band.darker(170);
+        // Top to bottom: red, amber, vivid green, dark green, amber, red.
+        // The scale stays put when the slider moves.
+        if(y<16) band=QColor("#f13820");
+        else if(y<26) band=QColor("#f3d62b");
+        else if(y<44) band=QColor("#24f026");
+        else if(y<54) band=QColor("#22db29");
+        else if(y<63) band=QColor("#e0c52d");
+        else band=QColor("#ec3025");
         p.fillRect(585,y,33,1,band);
     }
     p.restore();
-    // Small recessed silver handle across the top edge of the backlight.
+    // Narrow recessed metal handle travels over the coloured fill.
     p.fillRect(581,markerY-3,39,7,QColor("#777777"));
     p.fillRect(582,markerY-2,37,5,QColor("#e6e6e6"));
     p.fillRect(583,markerY-1,35,3,QColor("#ffffff"));
+
     for(int i=0;i<6;++i) {
         const int y0=5+i*11;
         for(int row=0;row<5;++row) {
