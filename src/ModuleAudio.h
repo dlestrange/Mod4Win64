@@ -71,7 +71,7 @@ private:
  using SeekFn = double(*)(void*, double);
  using PositionFn = double(*)(void*);
  using MetadataFn = char*(*)(void*, const char*);
- using FreeStringFn = void(*)(char*);
+ using FreeStringFn = void(*)(const char*);
  using IntFn = int32_t(*)(void*);
  using PatternRowsFn = int32_t(*)(void*,int32_t);
  using PatternCommandFn = uint8_t(*)(void*,int32_t,int32_t,int32_t,int);
