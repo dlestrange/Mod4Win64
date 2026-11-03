@@ -1,66 +1,204 @@
 #include "ClassicDisplay.h"
 #include <QPainter>
+#include <QImage>
 #include <QFont>
 #include <QPaintEvent>
+#include <QPolygon>
+#include <QHash>
 #include <QtGlobal>
+#include <algorithm>
 
-ClassicDisplay::ClassicDisplay(QWidget* parent) : QWidget(parent) {
-    setMinimumSize(350, 96);
+namespace {
+constexpr int W=626, H=96;
+const QColor lit("#40ff46"), dim("#103718"), dark("#030a04");
+
+// 5x7 dot-matrix alphabet. Each bit is a physical illuminated pixel.
+// Keep the dot drawing independent of host fonts and device DPI.
+const QHash<QChar,QVector<QString>>& font5x7() {
+    static const QHash<QChar,QVector<QString>> glyphs = {
+        {'A',{"01110","10001","10001","11111","10001","10001","10001"}},
+        {'B',{"11110","10001","10001","11110","10001","10001","11110"}},
+        {'C',{"01111","10000","10000","10000","10000","10000","01111"}},
+        {'D',{"11110","10001","10001","10001","10001","10001","11110"}},
+        {'E',{"11111","10000","10000","11110","10000","10000","11111"}},
+        {'F',{"11111","10000","10000","11110","10000","10000","10000"}},
+        {'G',{"01111","10000","10000","10111","10001","10001","01111"}},
+        {'H',{"10001","10001","10001","11111","10001","10001","10001"}},
+        {'I',{"11111","00100","00100","00100","00100","00100","11111"}},
+        {'J',{"00111","00010","00010","00010","10010","10010","01100"}},
+        {'K',{"10001","10010","10100","11000","10100","10010","10001"}},
+        {'L',{"10000","10000","10000","10000","10000","10000","11111"}},
+        {'M',{"10001","11011","10101","10101","10001","10001","10001"}},
+        {'N',{"10001","11001","10101","10011","10001","10001","10001"}},
+        {'O',{"01110","10001","10001","10001","10001","10001","01110"}},
+        {'P',{"11110","10001","10001","11110","10000","10000","10000"}},
+        {'Q',{"01110","10001","10001","10001","10101","10010","01101"}},
+        {'R',{"11110","10001","10001","11110","10100","10010","10001"}},
+        {'S',{"01111","10000","10000","01110","00001","00001","11110"}},
+        {'T',{"11111","00100","00100","00100","00100","00100","00100"}},
+        {'U',{"10001","10001","10001","10001","10001","10001","01110"}},
+        {'V',{"10001","10001","10001","10001","10001","01010","00100"}},
+        {'W',{"10001","10001","10001","10101","10101","10101","01010"}},
+        {'X',{"10001","10001","01010","00100","01010","10001","10001"}},
+        {'Y',{"10001","10001","01010","00100","00100","00100","00100"}},
+        {'Z',{"11111","00001","00010","00100","01000","10000","11111"}},
+        {'0',{"01110","10011","10101","10101","11001","10001","01110"}},
+        {'1',{"00100","01100","00100","00100","00100","00100","01110"}},
+        {'2',{"01110","10001","00001","00010","00100","01000","11111"}},
+        {'3',{"11110","00001","00001","01110","00001","00001","11110"}},
+        {'4',{"00010","00110","01010","10010","11111","00010","00010"}},
+        {'5',{"11111","10000","10000","11110","00001","00001","11110"}},
+        {'6',{"01110","10000","10000","11110","10001","10001","01110"}},
+        {'7',{"11111","00001","00010","00100","01000","01000","01000"}},
+        {'8',{"01110","10001","10001","01110","10001","10001","01110"}},
+        {'9',{"01110","10001","10001","01111","00001","00001","01110"}},
+        {'-',{"00000","00000","00000","11111","00000","00000","00000"}},
+        {'.',{"00000","00000","00000","00000","00000","01100","01100"}},
+        {'!',{"00100","00100","00100","00100","00100","00000","00100"}},
+        {' ',{"00000","00000","00000","00000","00000","00000","00000"}},
+        {'/',{"00001","00001","00010","00100","01000","10000","10000"}},
+        {'_',{"00000","00000","00000","00000","00000","00000","11111"}}
+    };
+    return glyphs;
 }
-void ClassicDisplay::setTitle(const QString& title) { title_ = title; update(); }
-void ClassicDisplay::setState(const QString& state) { state_ = state; update(); }
-void ClassicDisplay::setDiagnostics(quint64 frames, quint64 nonzero) {
-    frames_ = frames; nonzero_ = nonzero; update();
+
+void drawMatrix(QPainter& p,const QRect& area,const QString& value) {
+    p.save();
+    p.setClipRect(area);
+    p.fillRect(area,dark);
+    // Unlit diodes stay visible even where there is no text.
+    for(int y=area.top()+2;y<area.bottom()-1;y+=3)
+        for(int x=area.left()+2;x<area.right()-1;x+=3)
+            p.fillRect(x,y,2,2,dim);
+    const int pitch=18, width=5*3-1, height=7*3-1;
+    const int maxChars=std::max(1,(area.width()-8)/pitch);
+    const QString str=value.toUpper().left(maxChars);
+    const int x0=area.x()+std::max(2,(area.width()-int(str.size())*pitch)/2);
+    const int y0=area.y()+(area.height()-height)/2;
+    const auto& glyphs=font5x7();
+    for(int k=0;k<str.size();++k) {
+        const auto it=glyphs.constFind(str.at(k));
+        if(it==glyphs.constEnd()) continue;
+        const auto& rows=it.value();
+        for(int r=0;r<7;++r)
+            for(int c=0;c<5;++c)
+                if(rows[r][c]==QLatin1Char('1'))
+                    p.fillRect(x0+k*pitch+c*3,y0+r*3,2,2,lit);
+    }
+    p.restore();
+}
+
+// A deliberately chunky seven-segment LED digit: lit and ghost segments.
+void digit(QPainter& p,int x,int y,QChar value,int scale=1) {
+    auto segment=[&](int n,bool on) {
+        static const QRect rects[7]={
+            {3,0,9,2},{12,2,2,10},{12,13,2,10},
+            {3,23,9,2},{1,13,2,10},{1,2,2,10},{3,11,9,2}
+        };
+        const QRect r=rects[n];
+        p.fillRect(QRect(x+r.x()*scale,y+r.y()*scale,
+                         r.width()*scale,r.height()*scale),on?lit:dim);
+    };
+    int bits=0;
+    switch(value.toLatin1()) {
+    case '0':bits=0x3f;break;
+    case '1':bits=0x06;break;
+    case '2':bits=0x5b;break;
+    case '3':bits=0x4f;break;
+    case '4':bits=0x66;break;
+    case '5':bits=0x6d;break;
+    case '6':bits=0x7d;break;
+    case '7':bits=0x07;break;
+    case '8':bits=0x7f;break;
+    case '9':bits=0x6f;break;
+    case '-':bits=0x40;break;
+    default:break;
+    }
+    // segment order: top, upper right, lower right, bottom, lower left,
+    // upper left, middle (standard 7-bit encoding).
+    for(int n=0;n<7;++n)segment(n,(bits & (1<<n))!=0);
+}
+void digits(QPainter& p,int x,int y,QString value,int count,int scale=1) {
+    value=value.rightJustified(count,QLatin1Char(' ')).right(count);
+    for(int i=0;i<count;++i)digit(p,x+i*17*scale,y,value.at(i),scale);
+}
+void bevel(QPainter& p,const QRect& r) {
+    p.fillRect(r,dark);
+    p.setPen(QColor("#ffffff"));
+    p.drawLine(r.topLeft(),r.topRight());
+    p.drawLine(r.topLeft(),r.bottomLeft());
+    p.setPen(QColor("#707070"));
+    p.drawLine(r.bottomLeft(),r.bottomRight());
+    p.drawLine(r.topRight(),r.bottomRight());
+}
+}
+ClassicDisplay::ClassicDisplay(QWidget* parent) : QWidget(parent) {
+    setMinimumSize(350,96);
+}
+void ClassicDisplay::setTitle(const QString& title) { title_=title; update(); }
+void ClassicDisplay::setState(const QString& state) { state_=state; update(); }
+void ClassicDisplay::setDiagnostics(quint64 frames,quint64 nonzero) {
+    frames_=frames; nonzero_=nonzero; update();
 }
 void ClassicDisplay::paintEvent(QPaintEvent*) {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, false);
-    // Paint at the original-era logical resolution, scaling up as a single canvas.
-    p.scale(width() / 626.0, height() / 96.0);
-    auto bevel = [&](const QRect& r) {
-        p.fillRect(r, QColor("#050a05"));
-        p.setPen(QColor("#ffffff")); p.drawLine(r.topLeft(), r.topRight());
-        p.drawLine(r.topLeft(), r.bottomLeft());
-        p.setPen(QColor("#707070")); p.drawLine(r.bottomLeft(), r.bottomRight());
-        p.drawLine(r.topRight(), r.bottomRight());
-    };
-    const QColor green("#3dff42");
-    p.fillRect(QRect(0, 0, 626, 96), QColor("#c0c0c0"));
-    bevel({2, 2, 406, 39});
-    bevel({417, 2, 156, 94});
-    bevel({2, 46, 251, 48});
-    bevel({257, 46, 151, 48});
-    bevel({577, 2, 47, 94});
-    p.setPen(green);
-    QFont matrix("Consolas", 17, QFont::Bold);
-    matrix.setStyleStrategy(QFont::NoAntialias);
-    p.setFont(matrix);
-    p.drawText(QRect(8, 4, 394, 34), Qt::AlignCenter, title_.left(27).toUpper());
-    QFont small("Consolas", 10, QFont::Bold);
+    QImage canvas(W,H,QImage::Format_ARGB32_Premultiplied);
+    canvas.fill(QColor("#c0c0c0"));
+    QPainter p(&canvas);
+    p.setRenderHint(QPainter::Antialiasing,false);
+    bevel(p,{2,2,406,39});
+    bevel(p,{417,2,156,94});
+    bevel(p,{2,46,251,48});
+    bevel(p,{257,46,151,48});
+    bevel(p,{577,2,47,94});
+
+    // The matrix renders true green pixel dots rather than a raster font.
+    drawMatrix(p,{8,5,394,32},title_);
+
+    QFont small("Tahoma",8,QFont::Bold);
     small.setStyleStrategy(QFont::NoAntialias);
     p.setFont(small);
-    p.drawText(12, 60, "MIN  SEC     Song     Total");
-    p.drawText(12, 83, "--:--       --  of   --");
-    p.drawText(264, 60, "Pattern");
-    p.drawText(264, 82, "-- of --");
-    p.drawText(424, 18, "48kHz 16Bit");
-    p.drawText(424, 35, "STEREO");
-    p.drawText(424, 52, "CH: -- BPM: ---");
-    p.drawText(424, 68, state_.left(16).toUpper());
-    p.drawText(424, 83, nonzero_ ? "AUDIO ACTIVE" : "AUDIO IDLE");
-    // PREAMP is a user-adjustable gain control in the original.
-    // Graphic and 0 dB label only for now; do not imply gain is implemented.
-    const QString preamp = "PREAMP";
-    const QColor preampColors[] = {
-        QColor("#ff3a23"), QColor("#efbd26"), QColor("#45e354"),
-        QColor("#45e354"), QColor("#efbd26"), QColor("#e63537") };
-    QFont ampFont("Arial", 9, QFont::Black);
+    p.setPen(lit);
+    p.drawText(12,57,"MIN");
+    p.drawText(73,57,"SEC");
+    p.drawText(126,57,"Song");
+    p.drawText(194,57,"Total");
+    p.drawText(264,57,"Pattern");
+    p.drawText(351,57,"Shuffle");
+    // All-segment ghost numerals. Live timing and song navigation will be
+    // wired to the already synchronised audio clock in a subsequent release.
+    digits(p,12,64,"--",2);
+    p.fillRect(46,75,2,2,lit);
+    p.fillRect(46,84,2,2,lit);
+    digits(p,57,64,"--",2);
+    digits(p,131,64,"--",2);
+    p.drawText(169,84,"of");
+    digits(p,188,64,"--",2);
+    digits(p,264,64,"--",2);
+    p.drawText(299,84,"of");
+    digits(p,316,64,"--",2);
+
+    p.drawText(424,18,"48kHz 16Bit");
+    p.drawText(424,35,"STEREO");
+    p.drawText(424,52,"CH: -- BPM: ---");
+    p.drawText(424,68,state_.left(16).toUpper());
+    p.drawText(424,83,nonzero_?"AUDIO ACTIVE":"AUDIO IDLE");
+
+    const QString preamp="PREAMP";
+    const QColor preampColors[]={
+        QColor("#ff3a23"),QColor("#efbd26"),QColor("#45e354"),
+        QColor("#45e354"),QColor("#efbd26"),QColor("#e63537")};
+    QFont ampFont("Arial",9,QFont::Black);
     p.setFont(ampFont);
-    for (int i = 0; i < preamp.size(); ++i) {
+    for(int i=0;i<preamp.size();++i) {
         p.setPen(preampColors[i]);
-        p.drawText(584, 14 + i * 11, QString(preamp[i]));
+        p.drawText(584,14+i*11,QString(preamp[i]));
     }
-    p.setPen(green);
+    p.setPen(lit);
     p.setFont(small);
-    p.drawText(583, 89, "0dB");
+    p.drawText(583,89,"0dB");
+    p.end();
+
+    QPainter output(this);
+    output.setRenderHint(QPainter::SmoothPixmapTransform,false);
+    output.drawImage(rect(),canvas);
 }
