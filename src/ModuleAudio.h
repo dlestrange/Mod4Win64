@@ -33,6 +33,7 @@ struct ModuleInfo {
  qint64 fileBytes = 0;
  int channels = 0;
  int instrumentSlots = 0;
+ int playableInstrumentCount = -1; // -1: not available for this format
  int sampleSlots = 0;
  int patternCount = 0;
  int orderCount = 0;
