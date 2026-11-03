@@ -8,7 +8,7 @@
 #include <QSettings>
 
 EffectsWindow::EffectsWindow(QWidget* parent) : QDialog(parent) {
-    setWindowTitle("MOD4WIN [2.40] Effects");
+    setWindowTitle("Mod4Win64 2026 Beta - Effects");
     setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
     setModal(false);
     setStyleSheet("EffectsWindow { background:#c0c0c0; }");
