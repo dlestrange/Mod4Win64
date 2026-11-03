@@ -66,7 +66,7 @@ bool isModule(const QString& name) {
 }
 
 JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
-    setWindowTitle("MOD4WIN [2.40] - Open Files / Jukebox");
+    setWindowTitle("Mod4Win64 2026 Beta - Open Files / Jukebox");
     setWindowFlags(Qt::Window);
     resize(830, 440);
     setStyleSheet(classicStyle);
@@ -279,7 +279,7 @@ void JukeboxWindow::updateCount() {
 }
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
-    setWindowTitle("MOD4WIN [2.40 Last Beta] - Mod4Win64 v0.6");
+    setWindowTitle("Mod4Win64 2026 Beta");
     setFixedSize(650, 225);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
@@ -287,7 +287,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     audio_ = new ModuleAudio(this);
     jukebox_ = new JukeboxWindow(this);
     info_ = new QDialog(this);
-    info_->setWindowTitle("MOD4WIN [2.40 Last Beta] Module Info");
+    info_->setWindowTitle("Mod4Win64 2026 Beta - Module Info");
     info_->setWindowFlags(Qt::Window);
     info_->setStyleSheet(classicStyle);
     info_->setFixedSize(540, 410);
