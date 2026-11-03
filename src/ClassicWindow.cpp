@@ -616,7 +616,7 @@ void ClassicPlayer::refreshSampleDetails() {
             || data.explanation=="Empty instrument slot";
         if(emptySlot) {
             sampleValues_->setAlignment(Qt::AlignCenter);
-            sampleValues_->setText("This instrument slot contains\\nno audio");
+            sampleValues_->setText("This instrument slot contains\nno audio");
         } else {
             sampleValues_->setAlignment(Qt::AlignCenter);
             sampleValues_->setText(data.explanation.isEmpty()
