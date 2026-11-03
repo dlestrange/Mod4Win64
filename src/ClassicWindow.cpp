@@ -537,7 +537,7 @@ void ClassicPlayer::chooseTrack(const QString& path) {
     // The original title LCD can switch between the module's embedded title
     // and the on-disk filename. Keep both available after load.
     display_->setModuleNames(audio_->moduleTitle(),
-                             QFileInfo(path).completeBaseName());
+                             QFileInfo(path).fileName());
     effects_->setSnapshot(audio_->effectsSnapshot());
     refreshModuleInfo();
     audio_->play();
