@@ -368,6 +368,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     sampleRoot->setSpacing(3);
     sampleValues_ = new QLabel(sampleDialog_);
     sampleValues_->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
+    sampleValues_->setWordWrap(true);
     sampleValues_->setFixedHeight(131);
     sampleValues_->setStyleSheet(
         "background:#c0c0c0;color:#101010;font:bold 12px 'Courier New';"
@@ -607,10 +608,23 @@ void ClassicPlayer::refreshSampleDetails() {
     sampleNumber_->setText(QString("%1").arg(sampleIndex_+1,3,10,QChar('0')));
     sampleName_->setText(instrumentNames_.at(sampleIndex_));
     if(!data.supported || !data.hasSample) {
-        sampleValues_->setText(data.explanation.isEmpty()
-            ?QStringLiteral("No PCM sample data"):data.explanation);
+        // Text-only slots and zero-length samples are the same user-facing
+        // state. Keep malformed-file / unsupported-format errors distinct.
+        const bool emptySlot=data.explanation=="This instrument slot contains no samples"
+            || data.explanation=="The first sample contains no audio"
+            || data.explanation=="This sample slot contains no audio"
+            || data.explanation=="Empty instrument slot";
+        if(emptySlot) {
+            sampleValues_->setAlignment(Qt::AlignCenter);
+            sampleValues_->setText("This instrument slot contains\\nno audio");
+        } else {
+            sampleValues_->setAlignment(Qt::AlignCenter);
+            sampleValues_->setText(data.explanation.isEmpty()
+                ?QStringLiteral("No PCM sample data"):data.explanation);
+        }
         return;
     }
+    sampleValues_->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
     // Sample 1 is shown for multi-sample XM instruments. Additional samples
     // can be supported in a future version without inventing sample values.
     QString text=QString(
