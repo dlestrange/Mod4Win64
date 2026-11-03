@@ -3,6 +3,8 @@
 #include <QImage>
 #include <QFont>
 #include <QPaintEvent>
+#include <QMouseEvent>
+#include <QSettings>
 #include <QPolygon>
 #include <QHash>
 #include <QtGlobal>
@@ -134,8 +136,30 @@ void bevel(QPainter& p,const QRect& r) {
 }
 ClassicDisplay::ClassicDisplay(QWidget* parent) : QWidget(parent) {
     setMinimumSize(350,96);
+    showFilename_=QSettings("Mod4Win64","Mod4Win64")
+        .value("appearance/showModuleFilename",false).toBool();
 }
 void ClassicDisplay::setTitle(const QString& title) { title_=title; update(); }
+void ClassicDisplay::setModuleNames(const QString& title,const QString& filename) {
+    title_=title;
+    filename_=filename;
+    update();
+}
+void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
+    // Mouse position maps back to the 626x96 logical LCD coordinate space.
+    const QPointF logical(event->position().x()*W/width(),
+                          event->position().y()*H/height());
+    if(event->button()==Qt::LeftButton && QRectF(391,2,24,40).contains(logical)) {
+        showFilename_=!showFilename_;
+        QSettings("Mod4Win64","Mod4Win64")
+            .setValue("appearance/showModuleFilename",showFilename_);
+        setToolTip(showFilename_?"Displaying module filename":"Displaying module title");
+        update();
+        event->accept();
+        return;
+    }
+    QWidget::mousePressEvent(event);
+}
 void ClassicDisplay::setState(const QString& state) { state_=state; update(); }
 void ClassicDisplay::setDiagnostics(quint64 frames,quint64 nonzero) {
     frames_=frames; nonzero_=nonzero; update();
@@ -145,14 +169,30 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     canvas.fill(QColor("#c0c0c0"));
     QPainter p(&canvas);
     p.setRenderHint(QPainter::Antialiasing,false);
-    bevel(p,{2,2,406,39});
+    // Narrow title/filename toggle lives between the two display sections.
+    // Reserve a real button-width strip rather than covering the LED text.
+    bevel(p,{2,2,389,39});
     bevel(p,{417,2,156,94});
     bevel(p,{2,46,251,48});
     bevel(p,{257,46,151,48});
     bevel(p,{577,2,47,94});
 
     // The matrix renders true green pixel dots rather than a raster font.
-    drawMatrix(p,{8,5,394,32},title_);
+    const QString visibleTitle=showFilename_ && !filename_.isEmpty()
+        ?filename_:title_;
+    drawMatrix(p,{8,5,378,32},visibleTitle);
+    // Small recessed rocker, modelled on the original switch next to the
+    // title matrix; its green marker changes end when toggled.
+    p.fillRect(QRect(393,3,21,37),QColor("#c0c0c0"));
+    p.setPen(QColor("#ffffff"));
+    p.drawLine(393,3,413,3);
+    p.drawLine(393,3,393,39);
+    p.setPen(QColor("#626262"));
+    p.drawLine(413,3,413,39);
+    p.drawLine(393,39,413,39);
+    p.fillRect(QRect(396,6,15,31),QColor("#e0e0e0"));
+    p.fillRect(QRect(397,showFilename_?29:8,13,5),QColor("#14672b"));
+    p.fillRect(QRect(398,showFilename_?30:9,11,3),lit);
 
     QFont small("Tahoma",8,QFont::Bold);
     small.setStyleStrategy(QFont::NoAntialias);
