@@ -163,7 +163,19 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(126,57,"Song");
     p.drawText(194,57,"Total");
     p.drawText(264,57,"Pattern");
-    p.drawText(351,57,"Shuffle");
+    // Three original-era status words in the right edge of the pattern LCD.
+    // Keep unselected modes softly visible; playback/playlist logic is wired
+    // in a later release. The small '1' is the single-module repeat indicator.
+    const auto modeLabel=[&](int y,const QString& name,bool enabled) {
+        p.setPen(enabled?lit:QColor("#246b2a"));
+        p.drawText(QRect(352,y,53,12),Qt::AlignLeft|Qt::AlignVCenter,name);
+    };
+    modeLabel(47,"Shuffle",false);
+    modeLabel(60,"Repeat",false);
+    modeLabel(73,"Introscan",false);
+    p.setPen(QColor("#103718"));
+    p.drawText(396,72,"1");
+    p.setPen(lit);
     // All-segment ghost numerals. Live timing and song navigation will be
     // wired to the already synchronised audio clock in a subsequent release.
     digits(p,12,64,"--",2);
