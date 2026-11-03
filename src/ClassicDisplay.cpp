@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QtGlobal>
 #include <algorithm>
+#include <cmath>
 
 namespace {
 constexpr int W=626, H=96;
@@ -158,7 +159,41 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
         event->accept();
         return;
     }
+    if(event->button()==Qt::LeftButton &&
+       QRectF(577,2,47,94).contains(logical)) {
+        draggingPreamp_=true;
+        setPreampFromY(event->position().y());
+        event->accept();
+        return;
+    }
     QWidget::mousePressEvent(event);
+}
+void ClassicDisplay::setPreampFromY(qreal widgetY) {
+    // Forty steps over the full travel, +20 dB at the top, -20 dB at
+    // the bottom. The control is visual-only until the gain stage exists.
+    const qreal y=widgetY*H/height();
+    const int step=std::clamp(int(std::lround((y-9.0)*40.0/61.0)),0,40);
+    const int db=20-step;
+    if(preampDb_!=db) {
+        preampDb_=db;
+        update();
+    }
+}
+void ClassicDisplay::mouseMoveEvent(QMouseEvent* event) {
+    if(draggingPreamp_) {
+        setPreampFromY(event->position().y());
+        event->accept();
+        return;
+    }
+    QWidget::mouseMoveEvent(event);
+}
+void ClassicDisplay::mouseReleaseEvent(QMouseEvent* event) {
+    if(draggingPreamp_ && event->button()==Qt::LeftButton) {
+        draggingPreamp_=false;
+        event->accept();
+        return;
+    }
+    QWidget::mouseReleaseEvent(event);
 }
 void ClassicDisplay::setState(const QString& state) { state_=state; update(); }
 void ClassicDisplay::setDiagnostics(quint64 frames,quint64 nonzero) {
@@ -236,10 +271,19 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(424,68,state_.left(16).toUpper());
     p.drawText(424,83,nonzero_?"AUDIO ACTIVE":"AUDIO IDLE");
 
+    // Original PREAMP gain control: a narrow illuminated horizontal cursor
+    // travels *behind* the fixed red/yellow/green lettering. The level text
+    // reports integer dB from +20 to -20; audio gain is not yet wired.
+    constexpr int trackTop=9, trackTravel=61;
+    const int markerY=trackTop+
+        int(std::lround((20-preampDb_)*trackTravel/40.0));
+    p.fillRect(581,markerY-2,38,6,QColor("#d6d6d6"));
+    p.fillRect(582,markerY-1,36,4,QColor("#f9f9f9"));
+    p.fillRect(584,markerY,32,2,QColor("#797979"));
     const QString preamp="PREAMP";
     const QColor preampColors[]={
-        QColor("#ff3a23"),QColor("#efbd26"),QColor("#45e354"),
-        QColor("#45e354"),QColor("#efbd26"),QColor("#e63537")};
+        QColor("#df2b20"),QColor("#f7c929"),QColor("#48f543"),
+        QColor("#48f543"),QColor("#f7c929"),QColor("#d62c24")};
     QFont ampFont("Arial",9,QFont::Black);
     p.setFont(ampFont);
     for(int i=0;i<preamp.size();++i) {
@@ -248,7 +292,8 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     }
     p.setPen(lit);
     p.setFont(small);
-    p.drawText(583,89,"0dB");
+    const QString gainText=(preampDb_>0?"+":"")+QString::number(preampDb_)+"dB";
+    p.drawText(QRect(578,76,44,16),Qt::AlignHCenter|Qt::AlignVCenter,gainText);
     p.end();
 
     QPainter output(this);
