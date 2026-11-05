@@ -11,6 +11,12 @@
 #include <QComboBox>
 #include <QStorageInfo>
 #include <QFileInfo>
+#include <QFrame>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QScrollBar>
+#include <numeric>
+#include <algorithm>
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
@@ -653,6 +659,8 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         else setPanelVisible(effects_);
     });
     connect(jukebox_, &JukeboxWindow::trackChosen, this, &ClassicPlayer::chooseTrack);
+    connect(display_,&ClassicDisplay::titleMatrixClicked,this,
+            &ClassicPlayer::showQuickPlaylist);
 
     auto* diagnosticTimer = new QTimer(this);
     diagnosticTimer->setInterval(1000);
@@ -676,6 +684,108 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     });
     effectsTimer->start();
 }
+void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
+    const QStringList queue=jukebox_->tracks();
+    // Native Qt::Popup behaviour automatically dismisses on outside click
+    // or Escape. Selection alone never loads a module.
+    auto* popup=new QFrame(this,Qt::Popup | Qt::FramelessWindowHint);
+    popup->setAttribute(Qt::WA_DeleteOnClose);
+    popup->setObjectName("quickPlaylistPopup");
+    popup->setStyleSheet(
+        "QFrame#quickPlaylistPopup{background:#c0c0c0;"
+        "border:3px outset #f0f0f0;}"
+        "QListWidget{background:#000000;color:#31ef39;"
+        "font:bold 12px 'Courier New';border:2px inset #888;padding:2px;}"
+        "QListWidget::item{padding:1px 2px;}"
+        "QListWidget::item:selected{background:#28f52f;color:#000000;}"
+        "QPushButton{background:#c0c0c0;color:#111;"
+        "border:2px outset #efefef;padding:2px;min-height:21px;}"
+        "QPushButton:pressed{border:2px inset #efefef;}");
+    auto* layout=new QVBoxLayout(popup);
+    layout->setContentsMargins(5,5,5,5);
+    layout->setSpacing(3);
+    auto* list=new QListWidget(popup);
+    list->setSelectionMode(QAbstractItemView::SingleSelection);
+    list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    list->setMinimumSize(206,245);
+    layout->addWidget(list);
+    auto* sorts=new QHBoxLayout();
+    sorts->setSpacing(1);
+    layout->addLayout(sorts);
+    auto addSortButton=[&](const QString& label) {
+        auto* button=new QPushButton(label,popup);
+        sorts->addWidget(button);
+        return button;
+    };
+    auto* none=addSortButton("none");
+    auto* name=addSortButton("name");
+    auto* ext=addSortButton("ext");
+
+    // Store the original playlist index with each item, even when the
+    // visual order is sorted. Duplicate filenames remain distinguishable.
+    const auto populate=[this,list,queue](int mode) {
+        const int oldIndex=list->currentItem()
+            ?list->currentItem()->data(Qt::UserRole).toInt()
+            :lcdSongIndex_-1;
+        QVector<int> indices(queue.size());
+        std::iota(indices.begin(),indices.end(),0);
+        if(mode!=0) {
+            std::stable_sort(indices.begin(),indices.end(),
+                [&queue,mode](int a,int b) {
+                    const QFileInfo ai(queue.at(a)),bi(queue.at(b));
+                    const QString ka=mode==1?ai.fileName():ai.suffix();
+                    const QString kb=mode==1?bi.fileName():bi.suffix();
+                    const int primary=QString::compare(ka,kb,Qt::CaseInsensitive);
+                    if(primary!=0) return primary<0;
+                    return QString::compare(ai.fileName(),bi.fileName(),
+                                           Qt::CaseInsensitive)<0;
+                });
+        }
+        list->clear();
+        for(int index:indices) {
+            const QString label=QString("%1:%2")
+                .arg(index+1).arg(QFileInfo(queue.at(index)).fileName());
+            auto* item=new QListWidgetItem(label,list);
+            item->setData(Qt::UserRole,index);
+            if(index==oldIndex) list->setCurrentItem(item);
+        }
+        if(list->count() && !list->currentItem()) list->setCurrentRow(0);
+    };
+    populate(0);
+    connect(none,&QPushButton::clicked,popup,[populate] { populate(0); });
+    connect(name,&QPushButton::clicked,popup,[populate] { populate(1); });
+    connect(ext,&QPushButton::clicked,popup,[populate] { populate(2); });
+    connect(list,&QListWidget::itemDoubleClicked,popup,
+        [this,popup,queue](QListWidgetItem* item) {
+            const int index=item->data(Qt::UserRole).toInt();
+            if(index<0 || index>=queue.size()) return;
+            const QString path=queue.at(index);
+            popup->close();
+            chooseTrack(path);
+            if(audio_->moduleInfo().filePath==path) {
+                lcdSongIndex_=index+1;
+                lcdSongTotal_=queue.size();
+                const EffectSnapshot snapshot=audio_->effectsSnapshot();
+                display_->setPlaybackCounters(snapshot.elapsedSeconds,
+                    lcdSongIndex_,lcdSongTotal_,
+                    snapshot.order+1,snapshot.orderCount);
+            }
+        });
+
+    // Anchor near the click, but constrain to the available desktop so
+    // the popup stays usable on small screens and scaled displays.
+    popup->adjustSize();
+    QPoint pos=globalPosition+QPoint(0,5);
+    if(QScreen* screen=QGuiApplication::screenAt(globalPosition)) {
+        const QRect area=screen->availableGeometry();
+        pos.setX(qBound(area.left(),pos.x(),area.right()-popup->width()+1));
+        pos.setY(qBound(area.top(),pos.y(),area.bottom()-popup->height()+1));
+    }
+    popup->move(pos);
+    popup->show();
+    list->setFocus();
+}
+
 void ClassicPlayer::stepPlaylist(int direction) {
     if(seekDirection_!=0) return;
     const QStringList playlist=jukebox_->tracks();
