@@ -182,6 +182,10 @@ void ModuleAudio::stop() {
  outputPeakLeft_.store(0.0f);
  outputPeakRight_.store(0.0f);
  outputClipped_.store(false);
+ surroundSideDelay_.fill(0.0);
+ surroundDelayHead_=0;
+ currentSurroundMix_=0.0;
+ currentStereoWidth_=1.0;
  presentedEffects_=EffectSnapshot{};
  if(sink_) { sink_->stop(); sink_.reset(); }
  if(isOpen()) close();
@@ -207,6 +211,10 @@ void ModuleAudio::beginSeek() {
  if(sink_) { sink_->stop(); sink_.reset(); }
  const double current=std::max(0.0,audible.elapsedSeconds);
  seek_(module_,current);
+ surroundSideDelay_.fill(0.0);
+ surroundDelayHead_=0;
+ currentSurroundMix_=0.0;
+ currentStereoWidth_=1.0;
  presentedEffects_=decoderSnapshot();
  seeking_=true;
  emit stateChanged("SEEKING");
@@ -253,28 +261,39 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
    // listener loading the next song would be stopped by this callback.
    QMetaObject::invokeMethod(this,[this] { stop(); emit endOfModule(); },Qt::QueuedConnection);
  }
- // Live output processing on the decoded stereo PCM, prior to Qt's sink.
- // Mono: L=R=(L+R)/2. Stereo: untouched. Surround: widened stereo
- // mid/side matrix (NOT discrete multichannel surround).
- // A ~5ms transition smooths both PREAMP and mode changes, avoiding clicks.
- // Saturate after gain/matrixing, so positive PREAMP cannot wrap Int16.
+ // Mono: fold L/R to the centre. Stereo: unmodified.
+ // Surround: classic-style stereo spatialisation designed for speakers,
+ // not discrete surround. A 12ms delayed side component is mixed with
+ // the original side signal; centre (mid) remains unaltered. The wet
+ // component is polarity-opposed across L/R and thus cancels on mono
+ // fold-down (L+R)/2, unlike an asymmetric left/right delay.
+ // Both the mode and PREAMP transition smoothly to avoid zipper clicks.
  const double targetGain=std::pow(10.0,preampDb_.load()/20.0);
  const int mode=outputMode_.load();
- const double targetWidth=mode==0?0.0:mode==2?1.45:1.0;
- const double targetTrim=mode==2?0.82:1.0;
+ const double targetWidth=mode==0?0.0:1.0;
+ const double targetSurround=mode==2?1.0:0.0;
  auto* pcm=reinterpret_cast<int16_t*>(data);
  float peakL=0.0f,peakR=0.0f;
  bool clipped=false;
  for(size_t frame=0;frame<produced;++frame) {
    currentGain_+=(targetGain-currentGain_)*0.004;
    currentStereoWidth_+=(targetWidth-currentStereoWidth_)*0.004;
-   currentOutputTrim_+=(targetTrim-currentOutputTrim_)*0.004;
+   currentSurroundMix_+=(targetSurround-currentSurroundMix_)*0.004;
    const size_t offset=frame*2;
    const double left=pcm[offset];
    const double right=pcm[offset+1];
    const double mid=(left+right)*0.5;
-   const double side=(left-right)*0.5*currentStereoWidth_;
-   const double gain=currentGain_*currentOutputTrim_;
+   const double drySide=(left-right)*0.5;
+   // Delay line is continuously fed even in Mono/Stereo, so switching
+   // to Surround never starts from an uninitialised or stale buffer.
+   const double delayedSide=surroundSideDelay_[surroundDelayHead_];
+   surroundSideDelay_[surroundDelayHead_]=drySide;
+   surroundDelayHead_=(surroundDelayHead_+1)%surroundDelayFrames_;
+   const double wet=currentSurroundMix_;
+   const double side=currentStereoWidth_*(
+       drySide*(1.0-0.25*wet) + delayedSide*(0.50*wet));
+   // Slight headroom in Surround prevents excess peaks from delayed side.
+   const double gain=currentGain_*(1.0-0.10*wet);
    const double outL=(mid+side)*gain;
    const double outR=(mid-side)*gain;
    if(std::abs(outL)>32767.0 || std::abs(outR)>32767.0) clipped=true;
