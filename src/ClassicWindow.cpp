@@ -127,6 +127,28 @@ private:
     Symbol symbol_;
     bool playbackActive_ = false;
 };
+// Same discrete 5x7 LEDs as the main player's module title, with a
+// recessed classic border. Unlike the main LCD, this heading has no
+// filename toggle: QLabel::text() is always the embedded module title.
+class InstrumentMatrixTitle final : public QLabel {
+public:
+    explicit InstrumentMatrixTitle(const QString& value,QWidget* parent)
+        : QLabel(value,parent) {}
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing,false);
+        p.fillRect(rect(),QColor("#c0c0c0"));
+        p.setPen(QColor("#707070"));
+        p.drawLine(0,0,width()-1,0);
+        p.drawLine(0,0,0,height()-1);
+        p.setPen(QColor("#ffffff"));
+        p.drawLine(0,height()-1,width()-1,height()-1);
+        p.drawLine(width()-1,0,width()-1,height()-1);
+        const QRect lcd=rect().adjusted(3,3,-4,-4);
+        ClassicDisplay::paintDotMatrix(p,lcd,text());
+    }
+};
 QLabel* led(const QString& value, QWidget* parent, int height = 32) {
     auto* label = new QLabel(value, parent);
     label->setStyleSheet(displayStyle);
@@ -376,12 +398,8 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* infoLayout = new QVBoxLayout(info_);
     infoLayout->setContentsMargins(8,8,8,8);
     infoLayout->setSpacing(4);
-    infoTitle_ = new QLabel("MODULE INFO", info_);
-    infoTitle_->setAlignment(Qt::AlignCenter);
+    infoTitle_ = new InstrumentMatrixTitle("MODULE INFO", info_);
     infoTitle_->setFixedHeight(38);
-    infoTitle_->setStyleSheet(
-        "background:#031006;color:#00e935;border:3px inset #888;"
-        "font:bold 22px 'Courier New';");
     infoLayout->addWidget(infoTitle_);
     // Compact heading with authentic scroll buttons at either edge.
     auto* headingRow = new QHBoxLayout();
