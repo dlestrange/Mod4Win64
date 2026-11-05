@@ -178,12 +178,13 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
 }
 void ClassicDisplay::setPreampFromY(qreal widgetY) {
     // Forty steps over the full travel, +20 dB at the top, -20 dB at
-    // the bottom. The control is visual-only until the gain stage exists.
+    // the bottom. Emit dB changes to the audio gain stage.
     const qreal y=widgetY*H/height();
     const int step=std::clamp(int(std::lround((y-9.0)*40.0/61.0)),0,40);
     const int db=20-step;
     if(preampDb_!=db) {
         preampDb_=db;
+        emit preampGainChanged(db);
         update();
     }
 }
