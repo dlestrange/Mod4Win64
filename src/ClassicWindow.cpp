@@ -235,6 +235,8 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     auto* queueActions = new QHBoxLayout();
     queueColumn->addLayout(queueActions);
     auto* remove = actionButton("Remove", queueActions, this);
+    auto* removeAll = actionButton("Remove All", queueActions, this);
+    removeAll->setToolTip("Clear the playlist without deleting module files");
     auto* moveUp = actionButton("Up", queueActions, this);
     auto* moveDown = actionButton("Down", queueActions, this);
     counter_ = new QLabel(this);
@@ -286,12 +288,21 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     connect(add, &QPushButton::clicked, this, &JukeboxWindow::addSelectedFiles);
     connect(addAll, &QPushButton::clicked, this, &JukeboxWindow::addSelectedDirectoryFiles);
     connect(remove, &QPushButton::clicked, this, &JukeboxWindow::removeSelected);
+    connect(removeAll, &QPushButton::clicked, this, [this] {
+        if(queue_->count()==0) return;
+        const auto result=QMessageBox::question(this, "Clear playlist",
+            QString("Remove all %1 entries from the playlist?\\n"
+                    "No actual module files will be deleted.").arg(queue_->count()),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if(result==QMessageBox::Yes) clearQueue();
+    });
     connect(moveUp, &QPushButton::clicked, this, [this] { shiftCurrent(-1); });
     connect(moveDown, &QPushButton::clicked, this, [this] { shiftCurrent(1); });
     connect(files_, &QListWidget::itemDoubleClicked, this, [this] { addSelectedFiles(); });
+    // Filelist double-click adds; playlist double-click removes only the
+    // selected occurrence. The actual module is never deleted from disk.
     connect(queue_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
-        emit trackChosen(item->data(Qt::UserRole).toString());
-        hide();
+        removeQueueEntry(queue_->row(item));
     });
     connect(ok, &QPushButton::clicked, this, [this] {
         if (queue_->count() == 0) {
@@ -329,9 +340,10 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     connect(quit, &QPushButton::clicked, this, &QWidget::hide);
     connect(help, &QPushButton::clicked, this, [this] {
         QMessageBox::information(this, "Jukebox Help",
-            "Choose a drive, browse folders, select modules and click Add >>.\n"
-            "Double-click a playlist entry or click OK to load and play it.\n"
-            "Save writes a standard M3U playlist. Quit closes the jukebox without deleting its entries.");
+            "Double-click a Filelist entry to add it to the playlist.\\n"
+            "Double-click a Playlist entry to remove it; OK starts the selected module.\\n"
+            "Remove All empties the playlist but never deletes the files.\\n"
+            "The playlist saves automatically. Save exports a standard M3U file.");
     });
 
     // Populate a selectable list of filesystem roots (e.g. C:, D:, USB volumes).
@@ -395,6 +407,18 @@ void JukeboxWindow::removeQueueEntry(int index) {
     if(index<0 || index>=queue_->count()) return;
     delete queue_->takeItem(index);
     emit queueEntryRemoved(index);
+    updateCount();
+    savePlaylist();
+}
+void JukeboxWindow::clearQueue() {
+    if(queue_->count()==0) return;
+    // Notify the player about each old position, from last to first, so
+    // the active song index is safely detached without stopping playback.
+    // Save the final empty queue once, not each intermediate state.
+    for(int index=queue_->count()-1;index>=0;--index) {
+        delete queue_->takeItem(index);
+        emit queueEntryRemoved(index);
+    }
     updateCount();
     savePlaylist();
 }
