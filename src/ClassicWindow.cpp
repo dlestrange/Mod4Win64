@@ -724,7 +724,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
             if(state!=Qt::ApplicationActive) endHeldSeek();
         });
     connect(open, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
-    connect(file, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
+    connect(file, &QPushButton::clicked, this, &ClassicPlayer::showQuickPlaylistEditor);
     connect(info, &QPushButton::clicked, this, [this] { setPanelVisible(info_); });
     connect(effects, &QPushButton::clicked, this, [this] {
         if (effects_->isVisible()) effects_->hide();
@@ -793,6 +793,79 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         if (effects_->isVisible()) effects_->setSnapshot(snapshot);
     });
     effectsTimer->start();
+}
+void ClassicPlayer::showQuickPlaylistEditor() {
+    // Separate from the title-LCD popup: File is a lightweight editor,
+    // never a filesystem manager. Removing a queue entry leaves the file
+    // on disk (and does not interrupt a currently playing module).
+    auto* editor=new QDialog(this);
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    editor->setWindowFlags(Qt::Window);
+    editor->setWindowTitle("Mod4Win64 2026 Beta - Playlist Editor");
+    editor->resize(410,420);
+    editor->setStyleSheet(
+        "QDialog{background:#c0c0c0;color:#111;}"
+        "QListWidget{background:#030a04;color:#3cf34d;"
+        "font:bold 12px 'Courier New';border:3px inset #999;}"
+        "QListWidget::item{padding:3px;}"
+        "QListWidget::item:selected{background:#239339;color:#fff;}"
+        "QPushButton{background:#c0c0c0;color:#111;"
+        "border:2px outset #eee;padding:5px;}"
+        "QPushButton:pressed{border:2px inset #eee;}");
+    auto* root=new QVBoxLayout(editor);
+    root->setContentsMargins(8,8,8,8);
+    root->setSpacing(6);
+    auto* help=new QLabel(
+        "Double-click to remove from playlist. Drag to reorder.\n"
+        "Original module files are never deleted.",editor);
+    root->addWidget(help);
+    auto* list=new QListWidget(editor);
+    list->setSelectionMode(QAbstractItemView::SingleSelection);
+    list->setDragDropMode(QAbstractItemView::InternalMove);
+    list->setDefaultDropAction(Qt::MoveAction);
+    list->setDragEnabled(true);
+    list->setAcceptDrops(true);
+    list->setDropIndicatorShown(true);
+    root->addWidget(list,1);
+    auto* close=new QPushButton("Close",editor);
+    root->addWidget(close,0,Qt::AlignRight);
+    connect(close,&QPushButton::clicked,editor,&QDialog::close);
+
+    const auto populate=[this,list]() {
+        const QStringList paths=jukebox_->tracks();
+        list->clear();
+        for(int i=0;i<paths.size();++i) {
+            auto* item=new QListWidgetItem(
+                QString("%1: %2").arg(i+1,2,10,QLatin1Char('0'))
+                    .arg(QFileInfo(paths.at(i)).fileName()),list);
+            // Stable original index for the duration of each drag action.
+            item->setData(Qt::UserRole,i);
+        }
+    };
+    populate();
+    connect(list,&QListWidget::itemDoubleClicked,editor,
+        [this,list,populate](QListWidgetItem* item) {
+            const int index=item->data(Qt::UserRole).toInt();
+            if(index<0 || index>=jukebox_->tracks().size()) return;
+            jukebox_->removeQueueEntry(index);
+            populate();
+        });
+    // Let Qt finish its internal drag/drop move before reading the resulting
+    // item sequence. This permutation updates the real Jukebox queue.
+    connect(list->model(),&QAbstractItemModel::rowsMoved,editor,
+        [this,list,populate] {
+            QTimer::singleShot(0,list,[this,list,populate] {
+                QVector<int> newToOld;
+                newToOld.reserve(list->count());
+                for(int row=0;row<list->count();++row)
+                    newToOld.append(list->item(row)->data(Qt::UserRole).toInt());
+                jukebox_->reorderQueue(newToOld);
+                populate();
+            });
+        });
+    connect(jukebox_,&JukeboxWindow::queueUpdated,editor,
+        [populate](int) { populate(); });
+    editor->show();
 }
 void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
     const QStringList queue=jukebox_->tracks();
