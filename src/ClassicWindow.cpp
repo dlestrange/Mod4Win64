@@ -25,6 +25,8 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QPainter>
+#include <QPolygonF>
 #include <QTableWidget>
 #include <QTimer>
 #include <QTreeView>
@@ -45,6 +47,65 @@ constexpr auto classicStyle =
     "font-family:Consolas,'Courier New',monospace;border:3px inset #999;}"
     "QListWidget::item:selected,QTreeView::item:selected,QTableWidget::item:selected"
     "{background:#167a30;color:#fff;}";
+// Draw crisp, flat tracker transport symbols. Qt/OS font glyphs vary in
+// spacing and weight, especially when this app moves to macOS. The original
+// Mod4Win button geometry is retained, without embossed icon highlights.
+class TransportButton final : public QPushButton {
+public:
+    enum class Symbol { Stop, Play, Pause, Previous, Rewind, Forward, Next };
+    explicit TransportButton(Symbol symbol,QWidget* parent)
+        : QPushButton(parent), symbol_(symbol) {}
+protected:
+    void paintEvent(QPaintEvent* event) override {
+        QPushButton::paintEvent(event); // Existing classic button frame.
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing,true);
+        const QColor ink=isEnabled()?QColor("#008e21"):QColor("#428b53");
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(ink);
+        const qreal scale=qMin((width()-10)/32.0,(height()-12)/24.0);
+        painter.translate(width()/2.0,height()/2.0);
+        painter.scale(scale,scale);
+        if(isDown()) painter.translate(1,1);
+        auto triangle=[&](qreal x,bool right) {
+            const qreal direction=right?1.0:-1.0;
+            painter.drawPolygon(QPolygonF{
+                QPointF(x-direction*6,-9),
+                QPointF(x+direction*6,0),
+                QPointF(x-direction*6,9)});
+        };
+        switch(symbol_) {
+        case Symbol::Stop:
+            painter.drawRect(QRectF(-9,-9,18,18));
+            break;
+        case Symbol::Play:
+            triangle(0,true);
+            break;
+        case Symbol::Pause:
+            painter.drawRect(QRectF(-9,-9,6,18));
+            painter.drawRect(QRectF(3,-9,6,18));
+            break;
+        case Symbol::Previous:
+            triangle(3,false);
+            painter.drawRect(QRectF(-13,-9,3,18));
+            break;
+        case Symbol::Rewind:
+            triangle(-6,false);
+            triangle(6,false);
+            break;
+        case Symbol::Forward:
+            triangle(-6,true);
+            triangle(6,true);
+            break;
+        case Symbol::Next:
+            triangle(-3,true);
+            painter.drawRect(QRectF(10,-9,3,18));
+            break;
+        }
+    }
+private:
+    Symbol symbol_;
+};
 QLabel* led(const QString& value, QWidget* parent, int height = 32) {
     auto* label = new QLabel(value, parent);
     label->setStyleSheet(displayStyle);
@@ -471,26 +532,26 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     // The transport keys end at logical x=408, like the lower LCD.
     // The right command group starts at x=417, like the audio-status pane.
     controls->addLayout(transportRow, 408);
-    auto transport = [this, transportRow](const QString& symbol, bool enabled = true) {
-        auto* button = actionButton(symbol, transportRow, this);
+    using Icon = TransportButton::Symbol;
+    auto transport = [this, transportRow](Icon symbol,bool enabled=true) {
+        auto* button=new TransportButton(symbol,this);
+        transportRow->addWidget(button);
         button->setFixedHeight(58);
         button->setMinimumWidth(30);
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        button->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
         button->setStyleSheet(
-            "QPushButton {color:#008e21;font:bold 17px Arial;"
-            "background:#c0c0c0;border:2px outset #eee;padding:0;}"
-            "QPushButton:pressed {border:2px inset #eee;}"
-            "QPushButton:disabled {color:#40864e;}");
+            "QPushButton {background:#c0c0c0;border:2px outset #eee;padding:0;}"
+            "QPushButton:pressed {border:2px inset #eee;}");
         button->setEnabled(enabled);
         return button;
     };
-    stopButton_ = transport("■");
-    playButton_ = transport("▶");
-    pauseButton_ = transport("Ⅱ");
-    transport("|◀", false);
-    transport("◀◀", false);
-    transport("▶▶", false);
-    transport("▶|", false);
+    stopButton_ = transport(Icon::Stop);
+    playButton_ = transport(Icon::Play);
+    pauseButton_ = transport(Icon::Pause);
+    transport(Icon::Previous,false);
+    transport(Icon::Rewind,false);
+    transport(Icon::Forward,false);
+    transport(Icon::Next,false);
 
     auto* commandGrid = new QGridLayout();
     commandGrid->setContentsMargins(0,0,0,0);
