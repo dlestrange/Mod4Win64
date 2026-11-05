@@ -46,6 +46,13 @@
 #include <QVBoxLayout>
 
 namespace {
+#ifdef MOD4MAC64
+constexpr auto productName = "Mod4Mac64";
+constexpr auto productLogo = "MOD4MAC";
+#else
+constexpr auto productName = "Mod4Win64";
+constexpr auto productLogo = "MOD4WIN";
+#endif
 constexpr auto green = "#55ee55";
 constexpr auto displayStyle =
     "QLabel {background:#050a05;color:#55ee55;"
@@ -154,7 +161,7 @@ protected:
 
         // Measure paths rather than relying on font-dependent QLabel padding.
         QPainterPath word;
-        word.addText(0,0,wordFont,"MOD4WIN");
+        word.addText(0,0,wordFont,productLogo);
         QPainterPath digits;
         digits.addText(0,0,numberFont,"64");
         const QRectF a=word.boundingRect(),b=digits.boundingRect();
@@ -240,7 +247,7 @@ bool isModule(const QString& name) {
 }
 
 JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
-    setWindowTitle("Mod4Win64 2026 Beta - Open Files / Jukebox");
+    setWindowTitle(QString("%1 2026 Beta - Open Files / Jukebox").arg(productName));
     setWindowFlags(Qt::Window);
     resize(830, 440);
     setStyleSheet(classicStyle);
@@ -532,7 +539,7 @@ void JukeboxWindow::updateCount() {
 }
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
-    setWindowTitle("Mod4Win64 2026 Beta");
+    setWindowTitle(QString("%1 2026 Beta").arg(productName));
     setFixedSize(650, 204);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
@@ -540,7 +547,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     audio_ = new ModuleAudio(this);
     jukebox_ = new JukeboxWindow(this);
     info_ = new QDialog(this);
-    info_->setWindowTitle("Mod4Win64 2026 Beta - Module Info");
+    info_->setWindowTitle(QString("%1 2026 Beta - Module Info").arg(productName));
     info_->setWindowFlags(Qt::Window);
     info_->setStyleSheet(classicStyle);
     info_->setFixedSize(540, 410);
@@ -953,7 +960,7 @@ void ClassicPlayer::showQuickPlaylistEditor() {
     auto* editor=new QDialog(this);
     editor->setAttribute(Qt::WA_DeleteOnClose);
     editor->setWindowFlags(Qt::Window);
-    editor->setWindowTitle("Mod4Win64 2026 Beta - Playlist Editor");
+    editor->setWindowTitle(QString("%1 2026 Beta - Playlist Editor").arg(productName));
     editor->resize(410,420);
     editor->setStyleSheet(
         "QDialog{background:#c0c0c0;color:#111;}"
