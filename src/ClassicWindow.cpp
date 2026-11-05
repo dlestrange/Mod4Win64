@@ -31,6 +31,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QButtonGroup>
 #include <QPainter>
 #include <QPolygonF>
 #include <QTableWidget>
@@ -700,7 +701,8 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
         "QListWidget::item:selected{background:#28f52f;color:#000000;}"
         "QPushButton{background:#c0c0c0;color:#111;"
         "border:2px outset #efefef;padding:2px;min-height:21px;}"
-        "QPushButton:pressed{border:2px inset #efefef;}");
+        "QPushButton:pressed,QPushButton:checked{border:2px inset #efefef;"
+        "background:#a8c9a8;font-weight:bold;}");
     auto* layout=new QVBoxLayout(popup);
     layout->setContentsMargins(5,5,5,5);
     layout->setSpacing(3);
@@ -720,6 +722,13 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
     auto* none=addSortButton("none");
     auto* name=addSortButton("name");
     auto* ext=addSortButton("ext");
+    auto* sortGroup=new QButtonGroup(popup);
+    sortGroup->setExclusive(true);
+    for(auto* button : {none,name,ext}) button->setCheckable(true);
+    sortGroup->addButton(none,0); // playlist's original insertion order
+    sortGroup->addButton(name,1); // alphabetical filename
+    sortGroup->addButton(ext,2);  // extension, then filename
+    none->setChecked(true);
 
     // Store the original playlist index with each item, even when the
     // visual order is sorted. Duplicate filenames remain distinguishable.
@@ -752,9 +761,10 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
         if(list->count() && !list->currentItem()) list->setCurrentRow(0);
     };
     populate(0);
-    connect(none,&QPushButton::clicked,popup,[populate] { populate(0); });
-    connect(name,&QPushButton::clicked,popup,[populate] { populate(1); });
-    connect(ext,&QPushButton::clicked,popup,[populate] { populate(2); });
+    // One mutually exclusive sort mode. Only the view order changes:
+    // original queue positions remain attached to each displayed item.
+    connect(sortGroup,&QButtonGroup::idClicked,popup,
+            [populate](int mode) { populate(mode); });
     connect(list,&QListWidget::itemDoubleClicked,popup,
         [this,popup,queue](QListWidgetItem* item) {
             const int index=item->data(Qt::UserRole).toInt();
