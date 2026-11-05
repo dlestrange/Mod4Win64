@@ -37,6 +37,8 @@
 #include <QPushButton>
 #include <QButtonGroup>
 #include <QPainter>
+#include <QPainterPath>
+#include <QFontMetricsF>
 #include <QPolygonF>
 #include <QTableWidget>
 #include <QTimer>
@@ -129,6 +131,57 @@ protected:
 private:
     Symbol symbol_;
     bool playbackActive_ = false;
+};
+// Custom painted MOD4WIN64 identity. Both parts share one centred logo,
+// with the oversized '64' given a separate, slightly bevelled treatment.
+// Geometry targets the TOP TITLE LCD below, not the entire player width.
+class PlayerLogo final : public QWidget {
+public:
+    explicit PlayerLogo(QWidget* parent) : QWidget(parent) {
+        setFixedHeight(36);
+        setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+        setAccessibleName("MOD4WIN64");
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing,true);
+        QFont wordFont("Arial Black",21,QFont::Black);
+        wordFont.setStyleStrategy(QFont::PreferAntialias);
+        wordFont.setLetterSpacing(QFont::AbsoluteSpacing,0.8);
+        QFont numberFont("Georgia",32,QFont::Black);
+        numberFont.setStyleStrategy(QFont::PreferAntialias);
+
+        // Measure paths rather than relying on font-dependent QLabel padding.
+        QPainterPath word;
+        word.addText(0,0,wordFont,"MOD4WIN");
+        QPainterPath digits;
+        digits.addText(0,0,numberFont,"64");
+        const QRectF a=word.boundingRect(),b=digits.boundingRect();
+        constexpr qreal gap=6.0;
+        const qreal totalWidth=a.width()+gap+b.width();
+        const qreal available=width()-8.0;
+        const qreal scale=qMin(1.0,available/qMax(1.0,totalWidth));
+        const qreal centreY=height()/2.0;
+        const qreal top=qMin(a.top(),b.top());
+        const qreal bottom=qMax(a.bottom(),b.bottom());
+        const qreal baseline=centreY-(top+bottom)*scale/2.0;
+        const qreal left=(width()-totalWidth*scale)/2.0;
+        p.translate(left,baseline);
+        p.scale(scale,scale);
+
+        p.translate(-a.left(),0);
+        p.fillPath(word,QColor("#184c2a"));
+        p.translate(a.width()+gap,-b.left());
+
+        // Slight offset shadow plus a restrained brighter inner highlight
+        // gives the 64 its own retro-logo personality without WordArt.
+        QPainterPath shadow=digits.translated(1.0,1.2);
+        p.fillPath(shadow,QColor("#657365"));
+        p.fillPath(digits,QColor("#14532d"));
+        p.setPen(QPen(QColor("#38854a"),0.55));
+        p.drawPath(digits);
+    }
 };
 // Same discrete 5x7 LEDs as the main player's module title, with a
 // recessed classic border. Unlike the main LCD, this heading has no
@@ -478,7 +531,7 @@ void JukeboxWindow::updateCount() {
 
 ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     setWindowTitle("Mod4Win64 2026 Beta");
-    setFixedSize(650, 195);
+    setFixedSize(650, 204);
     setStyleSheet(classicStyle);
     setWindowFlags(Qt::Window);
 
@@ -618,15 +671,10 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     root->setSpacing(2);
     auto* header = new QHBoxLayout();
     header->setSpacing(2);
-    auto* appName = new QLabel("MOD4WIN64", this);
-    // Deliberate Mod4Win64 identity: a bold, extended heading on the
-    // original-style Setup/Help toolbar, rather than another LCD row.
-    QFont branding("Arial", 16, QFont::Black);
-    branding.setStretch(130);
-    branding.setLetterSpacing(QFont::AbsoluteSpacing, 1.2);
-    appName->setFont(branding);
-    appName->setStyleSheet("color:#194d26;");
-    appName->setFixedHeight(27);
+    // Reserve the physical width of the title LCD below for the logo.
+    // Logo is centred over this display, rather than across the full player.
+    auto* appName = new PlayerLogo(this);
+    appName->setFixedWidth(394);
     header->addWidget(appName);
     header->addStretch();
     auto* setupButton = new QPushButton("Setup", this);
