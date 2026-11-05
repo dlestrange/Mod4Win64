@@ -19,9 +19,13 @@ class JukeboxWindow final : public QDialog {
 public:
     explicit JukeboxWindow(QWidget* parent = nullptr);
     QStringList tracks() const;
+    void removeQueueEntry(int index);
+    void reorderQueue(const QVector<int>& newToOld);
 signals:
     void trackChosen(const QString& path);
     void queueUpdated(int count);
+    void queueEntryRemoved(int oldIndex);
+    void queueReordered(const QVector<int>& newToOld);
 private:
     void addSelectedFiles();
     void addSelectedDirectoryFiles();
@@ -47,6 +51,8 @@ private:
     void syncModeDisplay();
     void handleModuleEnd();
     void showQuickPlaylist(const QPoint& globalPosition);
+    void showQuickPlaylistEditor();
+    void refreshPlaylistCounters();
     void setPanelVisible(QWidget* panel);
     QLabel* title_ = nullptr;
     QLabel* song_ = nullptr;
