@@ -128,7 +128,13 @@ private:
  bool seekWasPlaying_=false;
  bool seekWasPaused_=false;
  // Frame-stamped decoder states; presentation follows the audio sink clock.
- struct TimedEffects { quint64 frame; EffectSnapshot state; };
+ struct TimedEffects {
+     quint64 frame;
+     EffectSnapshot state;
+     float peakLeft = 0.0f;
+     float peakRight = 0.0f;
+     bool clipped = false;
+ };
  QQueue<TimedEffects> effectHistory_;
  EffectSnapshot presentedEffects_;
  EffectSnapshot decoderSnapshot() const;
