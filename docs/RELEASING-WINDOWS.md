@@ -23,13 +23,11 @@ PowerShell in the project directory:
 Expected output:
 
 - dist\Mod4Win64\Mod4Win64.exe
-- dist\Mod4Win64\libopenmpt.dll
+- dist\Mod4Win64\libopenmpt.dll and its required openmpt-mpg123.dll, openmpt-vorbis.dll, openmpt-zlib.dll companions
 - dist\Mod4Win64\Qt6*.dll and platforms\qwindows.dll from windeployqt
 - dist\Mod4Win64-Windows-x64-portable.zip
 
-The script has an optional ExtraDlls parameter for dependencies required by
-a particular libopenmpt distribution. Check dependencies (e.g. via
-dumpbin /dependents) and distribute their applicable licenses as well.
+The script automatically copies openmpt-mpg123.dll, openmpt-vorbis.dll and openmpt-zlib.dll from beside libopenmpt.dll, failing early if any are missing. Use a matching x64 distribution. ExtraDlls may still be used for other decoder/runtime dependencies. Check transitive DLL dependencies (e.g. via dumpbin /dependents) and include applicable notices and licenses.
 
 ## 3. Test on a clean machine
 
