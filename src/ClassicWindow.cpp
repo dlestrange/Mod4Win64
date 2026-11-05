@@ -14,6 +14,7 @@
 #include <QFrame>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QRandomGenerator>
 #include <QScrollBar>
 #include <numeric>
 #include <algorithm>
@@ -593,10 +594,17 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         commandGrid->addWidget(button, row, col);
         return button;
     };
-    command("Shuffle",0,0)->setEnabled(false);
-    command("Repeat",0,1)->setEnabled(false);
-    command("Scan",0,2)->setEnabled(false);
-    command("Time",0,3)->setEnabled(false);
+    auto* shuffleButton=command("Shuffle",0,0);
+    auto* repeatButton=command("Repeat",0,1);
+    auto* scanButton=command("Scan",0,2);
+    auto* timeButton=command("Time",0,3);
+    const QString modeStyle=
+        "QPushButton:checked {background:#9bcfa3;color:#07541a;"
+        "font-weight:bold;border:2px inset #eee;}";
+    for(auto* button:{shuffleButton,repeatButton,scanButton,timeButton}) {
+        button->setCheckable(true);
+        button->setStyleSheet(button->styleSheet()+modeStyle);
+    }
     auto* open = command("Open",1,0);
     auto* file = command("File",1,1);
     auto* info = command("Info",1,2);
@@ -659,6 +667,33 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         if (effects_->isVisible()) effects_->hide();
         else setPanelVisible(effects_);
     });
+    // Modes all update both button state and the original LCD indicators.
+    connect(shuffleButton,&QPushButton::clicked,this,[this](bool checked) {
+        shuffleEnabled_=checked;
+        rebuildPlayOrder();
+        syncModeDisplay();
+    });
+    connect(repeatButton,&QPushButton::clicked,this,
+        [this,repeatButton](bool) {
+            repeatMode_=(repeatMode_+1)%3;
+            repeatButton->setChecked(repeatMode_!=0);
+            repeatButton->setToolTip(repeatMode_==2?"Repeat current module":
+                repeatMode_==1?"Repeat whole playlist":"Repeat off");
+            syncModeDisplay();
+        });
+    connect(scanButton,&QPushButton::toggled,this,[this](bool checked) {
+        introscanEnabled_=checked;
+        syncModeDisplay();
+    });
+    connect(timeButton,&QPushButton::toggled,this,[this](bool checked) {
+        remainingTime_=checked;
+        syncModeDisplay();
+    });
+    connect(jukebox_,&JukeboxWindow::queueUpdated,this,[this](int count) {
+        lcdSongTotal_=count;
+        rebuildPlayOrder();
+    });
+    connect(audio_,&ModuleAudio::endOfModule,this,&ClassicPlayer::handleModuleEnd);
     connect(jukebox_, &JukeboxWindow::trackChosen, this, &ClassicPlayer::chooseTrack);
     connect(display_,&ClassicDisplay::titleMatrixClicked,this,
             &ClassicPlayer::showQuickPlaylist);
@@ -677,6 +712,14 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         // Effects and the main LCD prevents either window from advancing
         // independently of the sound actually leaving the audio device.
         const EffectSnapshot snapshot=audio_->effectsSnapshot();
+        // Introscan plays the first ten seconds of each queued module.
+        // Skip only while actively playing; pause and held seek never trigger it.
+        if(introscanEnabled_ && audio_->isPlaying() && !audio_->isPaused() &&
+           !audio_->isSeeking() && snapshot.elapsedSeconds>=10.0 &&
+           !snapshot.moduleIdentity.isEmpty()) {
+            if(!advancePlaylist(1,repeatMode_==1)) audio_->stop();
+            return;
+        }
         display_->setPlaybackCounters(snapshot.elapsedSeconds,
             lcdSongIndex_,lcdSongTotal_,
             snapshot.moduleIdentity.isEmpty()?0:snapshot.order+1,
@@ -837,6 +880,8 @@ void ClassicPlayer::chooseTrack(const QString& path) {
     lcdSongTotal_=qMax(1,int(queue.size()));
     const int queuePosition=queue.indexOf(path);
     lcdSongIndex_=queuePosition>=0?queuePosition+1:1;
+    currentModuleDuration_=audio_->durationSeconds();
+    display_->setModuleDuration(currentModuleDuration_);
     const EffectSnapshot initial=audio_->effectsSnapshot();
     display_->setPlaybackCounters(initial.elapsedSeconds,
         lcdSongIndex_,lcdSongTotal_,initial.order+1,initial.orderCount);
