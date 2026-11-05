@@ -90,6 +90,7 @@ private:
  using DestroyFn = void(*)(void*);
  using SeekFn = double(*)(void*, double);
  using PositionFn = double(*)(void*);
+ using SetRenderParamFn = int(*)(void*,int32_t,int32_t);
  using MetadataFn = char*(*)(void*, const char*);
  using FreeStringFn = void(*)(const char*);
  using IntFn = int32_t(*)(void*);
@@ -142,6 +143,7 @@ private:
  QQueue<TimedEffects> effectHistory_;
  EffectSnapshot presentedEffects_;
  EffectSnapshot decoderSnapshot() const;
+ void applyRenderSettings();
  // Target gain is atomic; smoothing runs on the audio generation path.
  std::atomic<int> preampDb_{0};
  int interpolationTaps_ = 0;   // libopenmpt's recommended default
