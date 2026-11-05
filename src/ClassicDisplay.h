@@ -12,6 +12,8 @@ public:
     void setPlaybackCounters(double seconds, int songIndex, int songTotal,
                              int orderIndex, int orderTotal);
     QSize sizeHint() const override { return {626, 96}; }
+signals:
+    void titleMatrixClicked(const QPoint& globalPosition);
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent* event) override;
