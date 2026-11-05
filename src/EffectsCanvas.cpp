@@ -98,8 +98,11 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     // Original Mod4Win labels the small recessed channel-number heading.
     p.drawText(QRect(7,64,17,11),Qt::AlignCenter,"Chn");
 
-    // These names follow common libopenmpt effect command IDs. An exact
-    // original-era category mapping remains a separate compatibility pass.
+    // libopenmpt exposes OpenMPT's internal EffectCommand enum, NOT the
+    // original MOD/XM effect nibble. These numeric IDs are defined in
+    // OpenMPT/soundlib/modcommand.h. A few commands are containers for
+    // different subcommands (notably MOD/XM Extended E effects); splitting
+    // those into original Mod4Win subcategories requires scanning parameters.
     auto effectName=[](int id)->QString {
         switch(id) {
         case 1: return "Arpeggio";
@@ -114,12 +117,30 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         case 10: return "Sample Offset";
         case 11: return "Vol Slide";
         case 12: return "Position Jump";
-        case 13: return "Pattern Break";
-        case 14: return "Extended";
-        case 15: return "Set Speed";
-        case 16: return "Set GlobalVol";
-        case 17: return "GlobalVolSlide";
-        case 20: return "Pan Slide";
+        case 13: return "Set Volume";
+        case 14: return "Pattern Break";
+        case 15: return "Retrig Note";
+        case 16: return "Set Speed";
+        case 17: return "Set Tempo";
+        case 18: return "Tremor";
+        case 19: return "MOD Extended";
+        case 20: return "S3M Extended";
+        case 21: return "Channel Volume";
+        case 22: return "Chn Vol Slide";
+        case 23: return "Set GlobalVol";
+        case 24: return "GlobalVolSlide";
+        case 25: return "Key Off";
+        case 26: return "Fine Vibrato";
+        case 27: return "Panbrello";
+        case 28: return "X-Fine Porta";
+        case 29: return "Pan Slide";
+        case 30: return "Set Env Pos";
+        case 31: return "MIDI";
+        case 32: return "Smooth MIDI";
+        case 33: return "Delay Cut";
+        case 34: return "XParam";
+        case 35: return "Fine Tune";
+        case 36: return "Smooth Tune";
         default: return QString("Effect %1").arg(id,2,16,QChar('0')).toUpper();
         }
     };
