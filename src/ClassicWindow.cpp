@@ -351,6 +351,27 @@ QStringList JukeboxWindow::tracks() const {
         result << queue_->item(i)->data(Qt::UserRole).toString();
     return result;
 }
+void JukeboxWindow::removeQueueEntry(int index) {
+    if(index<0 || index>=queue_->count()) return;
+    delete queue_->takeItem(index);
+    emit queueEntryRemoved(index);
+    updateCount();
+}
+void JukeboxWindow::reorderQueue(const QVector<int>& newToOld) {
+    const int count=queue_->count();
+    if(newToOld.size()!=count) return;
+    QVector<bool> seen(count,false);
+    for(int oldIndex:newToOld) {
+        if(oldIndex<0 || oldIndex>=count || seen[oldIndex]) return;
+        seen[oldIndex]=true;
+    }
+    QVector<QListWidgetItem*> original;
+    original.reserve(count);
+    while(queue_->count()) original.append(queue_->takeItem(0));
+    for(int oldIndex:newToOld) queue_->addItem(original[oldIndex]);
+    emit queueReordered(newToOld);
+    updateCount();
+}
 void JukeboxWindow::addSelectedFiles() {
     for (QListWidgetItem* item : files_->selectedItems()) {
         auto* next = new QListWidgetItem(item->text(), queue_);
@@ -367,14 +388,18 @@ void JukeboxWindow::addSelectedDirectoryFiles() {
     updateCount();
 }
 void JukeboxWindow::removeSelected() {
-    qDeleteAll(queue_->selectedItems());
-    updateCount();
+    QVector<int> indices;
+    for(QListWidgetItem* item:queue_->selectedItems()) indices.append(queue_->row(item));
+    std::sort(indices.begin(),indices.end(),std::greater<int>());
+    for(int index:indices) removeQueueEntry(index);
 }
 void JukeboxWindow::shiftCurrent(int offset) {
     const int i = queue_->currentRow(), dest = i + offset;
-    if (i < 0 || dest < 0 || dest >= queue_->count()) return;
-    auto* item = queue_->takeItem(i);
-    queue_->insertItem(dest, item);
+    if(i<0 || dest<0 || dest>=queue_->count()) return;
+    QVector<int> indices(queue_->count());
+    std::iota(indices.begin(),indices.end(),0);
+    indices.move(i,dest);
+    reorderQueue(indices);
     queue_->setCurrentRow(dest);
 }
 void JukeboxWindow::updateCount() {
