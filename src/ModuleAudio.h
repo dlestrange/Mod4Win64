@@ -62,6 +62,7 @@ public:
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
+ double durationSeconds() const;
  ModuleInfo moduleInfo() const;
  EffectSnapshot effectsSnapshot();
  bool isSequential() const override { return true; }
