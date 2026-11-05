@@ -548,10 +548,10 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     stopButton_ = transport(Icon::Stop);
     playButton_ = transport(Icon::Play);
     pauseButton_ = transport(Icon::Pause);
-    transport(Icon::Previous,false);
-    transport(Icon::Rewind,false);
-    transport(Icon::Forward,false);
-    transport(Icon::Next,false);
+    auto* previous=transport(Icon::Previous);
+    auto* rewind=transport(Icon::Rewind);
+    auto* forward=transport(Icon::Forward);
+    auto* next=transport(Icon::Next);
 
     auto* commandGrid = new QGridLayout();
     commandGrid->setContentsMargins(0,0,0,0);
@@ -585,6 +585,40 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     connect(playButton_, &QPushButton::clicked, audio_, &ModuleAudio::play);
     connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
     connect(audio_, &ModuleAudio::stateChanged, display_, &ClassicDisplay::setState);
+    // Previous/next select adjacent queued modules; do not wrap here.
+    connect(previous,&QPushButton::clicked,this,[this] { stepPlaylist(-1); });
+    connect(next,&QPushButton::clicked,this,[this] { stepPlaylist(1); });
+
+    // Held seek = no sound while depressed. Seek at ~12x real time,
+    // immediately on press and at a steady interval until release.
+    seekTimer_=new QTimer(this);
+    seekTimer_->setInterval(100);
+    connect(seekTimer_,&QTimer::timeout,this,[this] {
+        if(seekDirection_!=0) audio_->seekBy(1.2*seekDirection_);
+    });
+    const beginHeldSeek=[this](int direction) {
+        if(seekDirection_!=0) return;
+        audio_->beginSeek();
+        if(!audio_->isSeeking()) return;
+        seekDirection_=direction;
+        audio_->seekBy(1.0*direction);
+        seekTimer_->start();
+    };
+    const endHeldSeek=[this] {
+        if(seekDirection_==0) return;
+        seekTimer_->stop();
+        seekDirection_=0;
+        audio_->endSeek();
+    };
+    connect(rewind,&QPushButton::pressed,this,[beginHeldSeek] { beginHeldSeek(-1); });
+    connect(forward,&QPushButton::pressed,this,[beginHeldSeek] { beginHeldSeek(1); });
+    connect(rewind,&QPushButton::released,this,endHeldSeek);
+    connect(forward,&QPushButton::released,this,endHeldSeek);
+    // Avoid leaving playback silenced if the window deactivates mid-hold.
+    connect(qApp,&QApplication::applicationStateChanged,this,
+        [endHeldSeek](Qt::ApplicationState state) {
+            if(state!=Qt::ApplicationActive) endHeldSeek();
+        });
     connect(open, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
     connect(file, &QPushButton::clicked, this, [this] { setPanelVisible(jukebox_); });
     connect(info, &QPushButton::clicked, this, [this] { setPanelVisible(info_); });
@@ -615,6 +649,24 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         if (effects_->isVisible()) effects_->setSnapshot(snapshot);
     });
     effectsTimer->start();
+}
+void ClassicPlayer::stepPlaylist(int direction) {
+    if(seekDirection_!=0) return;
+    const QStringList playlist=jukebox_->tracks();
+    if(playlist.isEmpty()) return;
+    const int current=lcdSongIndex_-1;
+    const int nextIndex=current+direction;
+    if(nextIndex<0 || nextIndex>=playlist.size()) return;
+    chooseTrack(playlist.at(nextIndex));
+    // Preserve the exact playlist index even when duplicate file paths exist.
+    // chooseTrack otherwise finds the first matching filename.
+    if(audio_->moduleInfo().filePath==playlist.at(nextIndex)) {
+        lcdSongIndex_=nextIndex+1;
+        lcdSongTotal_=playlist.size();
+        const EffectSnapshot snapshot=audio_->effectsSnapshot();
+        display_->setPlaybackCounters(snapshot.elapsedSeconds,
+            lcdSongIndex_,lcdSongTotal_,snapshot.order+1,snapshot.orderCount);
+    }
 }
 void ClassicPlayer::setPanelVisible(QWidget* panel) {
     panel->show();
