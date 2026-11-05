@@ -157,6 +157,9 @@ void ModuleAudio::setPreampDb(int decibels) {
  // Constrain externally supplied values to the physical slider's range.
  preampDb_.store(std::clamp(decibels,-20,20));
 }
+void ModuleAudio::setOutputMode(int mode) {
+ outputMode_.store(std::clamp(mode,0,2));
+}
 void ModuleAudio::restart() {
  if (!module_) return;
  stop();
@@ -241,23 +244,41 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
    // listener loading the next song would be stopped by this callback.
    QMetaObject::invokeMethod(this,[this] { stop(); emit endOfModule(); },Qt::QueuedConnection);
  }
- // Apply actual PREAMP gain to the stereo 16-bit PCM before Qt buffers it.
- // dB means amplitude ratio 10^(dB/20), not a linear percentage.
- // Smooth transitions to prevent zipper/click noise while dragging.
- // Clamping protects the output from integer overflow; strong positive gain
- // can still audibly clip (as it does in real digital preamplifiers).
+ // Live output processing on the decoded stereo PCM, prior to Qt's sink.
+ // Mono: L=R=(L+R)/2. Stereo: untouched. Surround: widened stereo
+ // mid/side matrix (NOT discrete multichannel surround).
+ // A ~5ms transition smooths both PREAMP and mode changes, avoiding clicks.
+ // Saturate after gain/matrixing, so positive PREAMP cannot wrap Int16.
  const double targetGain=std::pow(10.0,preampDb_.load()/20.0);
+ const int mode=outputMode_.load();
+ const double targetWidth=mode==0?0.0:mode==2?1.45:1.0;
+ const double targetTrim=mode==2?0.82:1.0;
  auto* pcm=reinterpret_cast<int16_t*>(data);
- if(targetGain!=1.0 || std::abs(currentGain_-1.0)>0.00001) {
-   for(size_t frame=0;frame<produced;++frame) {
-     currentGain_+=(targetGain-currentGain_)*0.002;
-     for(int channel=0;channel<2;++channel) {
-       const size_t offset=frame*2+channel;
-       const long scaled=std::lround(double(pcm[offset])*currentGain_);
-       pcm[offset]=static_cast<int16_t>(std::clamp(scaled,-32768L,32767L));
-     }
-   }
+ float peakL=0.0f,peakR=0.0f;
+ bool clipped=false;
+ for(size_t frame=0;frame<produced;++frame) {
+   currentGain_+=(targetGain-currentGain_)*0.004;
+   currentStereoWidth_+=(targetWidth-currentStereoWidth_)*0.004;
+   currentOutputTrim_+=(targetTrim-currentOutputTrim_)*0.004;
+   const size_t offset=frame*2;
+   const double left=pcm[offset];
+   const double right=pcm[offset+1];
+   const double mid=(left+right)*0.5;
+   const double side=(left-right)*0.5*currentStereoWidth_;
+   const double gain=currentGain_*currentOutputTrim_;
+   const double outL=(mid+side)*gain;
+   const double outR=(mid-side)*gain;
+   if(std::abs(outL)>32767.0 || std::abs(outR)>32767.0) clipped=true;
+   pcm[offset]=static_cast<int16_t>(std::clamp(std::lround(outL),-32768L,32767L));
+   pcm[offset+1]=static_cast<int16_t>(std::clamp(std::lround(outR),-32768L,32767L));
+   peakL=std::max(peakL,float(std::abs(int(pcm[offset]))/32768.0));
+   peakR=std::max(peakR,float(std::abs(int(pcm[offset+1]))/32768.0));
  }
+ // Pump and LCD timer run on the main Qt thread. Exchange at each LCD
+ // refresh accumulates the largest PCM peak generated during the interval.
+ outputPeakLeft_.store(std::max(outputPeakLeft_.load(),peakL));
+ outputPeakRight_.store(std::max(outputPeakRight_.load(),peakR));
+ if(clipped) outputClipped_.store(true);
  const quint64 firstFrame=decodedFrames_.fetch_add(produced);
  // Capture the actual decoder state for each generated PCM block. The state
  // reflects the END of this block; we associate it with the block's first
