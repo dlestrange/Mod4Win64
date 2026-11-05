@@ -44,6 +44,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    currentTempo_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_tempo"));
    currentPattern_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_pattern"));
    currentRow_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_row"));
+   currentOrder_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_current_order"));
    patternRows_=reinterpret_cast<PatternRowsFn>(library_.resolve("openmpt_module_get_pattern_num_rows"));
    patternCommand_=reinterpret_cast<PatternCommandFn>(library_.resolve("openmpt_module_get_pattern_row_channel_command"));
    vuLeft_=reinterpret_cast<VuFn>(library_.resolve("openmpt_module_get_current_channel_vu_left"));
@@ -225,6 +226,8 @@ EffectSnapshot ModuleAudio::decoderSnapshot() const {
  if(currentTempo_) result.bpm=currentTempo_(module_);
  if(currentPattern_) result.pattern=currentPattern_(module_);
  if(currentRow_) result.row=currentRow_(module_);
+ if(currentOrder_) result.order=currentOrder_(module_);
+ if(numOrders_) result.orderCount=qBound(0,numOrders_(module_),4096);
  if(position_) result.elapsedSeconds=position_(module_);
  if(patternCommand_ && result.pattern>=0 && result.row>=0 &&
     patternRows_ && result.row<patternRows_(module_,result.pattern)) {
