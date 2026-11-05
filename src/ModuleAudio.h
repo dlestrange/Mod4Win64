@@ -54,6 +54,11 @@ public:
  void restart();
  void pumpAudio();
  void stop();
+ // Scrub silently while a navigation button is held, then resume on release.
+ void beginSeek();
+ void seekBy(double seconds);
+ void endSeek();
+ bool isSeeking() const { return seeking_; }
  bool isPlaying() const;
  bool isPaused() const;
  QString moduleTitle() const { return title_; }
@@ -97,6 +102,7 @@ private:
  DestroyFn destroy_=nullptr;
  SeekFn seek_=nullptr;
  PositionFn position_=nullptr;
+ PositionFn duration_=nullptr;
  MetadataFn metadata_=nullptr;
  FreeStringFn freeString_=nullptr;
  void* module_=nullptr;
@@ -109,6 +115,9 @@ private:
  bool playing_=false;
  bool paused_=false;
  bool finished_=false;
+ bool seeking_=false;
+ bool seekWasPlaying_=false;
+ bool seekWasPaused_=false;
  // Frame-stamped decoder states; presentation follows the audio sink clock.
  struct TimedEffects { quint64 frame; EffectSnapshot state; };
  QQueue<TimedEffects> effectHistory_;
