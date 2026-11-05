@@ -9,6 +9,8 @@ public:
     void setModuleNames(const QString& title, const QString& filename);
     void setState(const QString& state);
     void setDiagnostics(quint64 frames, quint64 nonzero);
+    void setPlaybackCounters(double seconds, int songIndex, int songTotal,
+                             int orderIndex, int orderTotal);
     QSize sizeHint() const override { return {626, 96}; }
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -23,6 +25,11 @@ private:
     bool draggingPreamp_ = false;
     void setPreampFromY(qreal widgetY);
     QString state_ = "STOPPED";
+    double elapsedSeconds_ = 0.0;
+    int songIndex_ = 0;
+    int songTotal_ = 0;
+    int orderIndex_ = 0;
+    int orderTotal_ = 0;
     quint64 frames_ = 0;
     quint64 nonzero_ = 0;
 };
