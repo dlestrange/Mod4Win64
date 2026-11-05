@@ -55,6 +55,9 @@ public:
  void pumpAudio();
  void stop();
  void setPreampDb(int decibels);
+ void setInterpolation(int taps);
+ void setStereoSeparation(int percent);
+ void setVolumeRamping(int strength);
  // Two-channel output processing: 0 mono, 1 stereo, 2 widened stereo.
  void setOutputMode(int mode);
  int outputMode() const { return outputMode_.load(); }
@@ -112,6 +115,7 @@ private:
  SeekFn seek_=nullptr;
  PositionFn position_=nullptr;
  PositionFn duration_=nullptr;
+ SetRenderParamFn setRenderParam_=nullptr;
  MetadataFn metadata_=nullptr;
  FreeStringFn freeString_=nullptr;
  void* module_=nullptr;
@@ -140,6 +144,9 @@ private:
  EffectSnapshot decoderSnapshot() const;
  // Target gain is atomic; smoothing runs on the audio generation path.
  std::atomic<int> preampDb_{0};
+ int interpolationTaps_ = 0;   // libopenmpt's recommended default
+ int stereoSeparation_ = 100;  // libopenmpt standard stereo
+ int rampStrength_ = -1;      // libopenmpt's recommended default
  double currentGain_ = 1.0;
  std::atomic<int> outputMode_{1};
  double currentStereoWidth_ = 1.0;
