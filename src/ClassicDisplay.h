@@ -18,6 +18,7 @@ public:
     void setPlaybackModes(bool shuffle, int repeatMode, bool introScan, bool remaining);
     void setModuleDuration(double seconds);
     void setOutputMode(int mode);
+    void setPreampDb(int db);
     void setAudioOutputStatus(int channels,int bpm,float left,float right,bool clipping);
     QSize sizeHint() const override { return {626, 96}; }
 signals:
