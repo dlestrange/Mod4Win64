@@ -538,6 +538,10 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     // Single painted LCD canvas keeps the original relative dimensions together.
     display_ = new ClassicDisplay(this);
     root->addWidget(display_, 1);
+    // PREAMP visual and audio controls share one source of truth.
+    // Default 0 dB maps to unity gain (no change to the sound).
+    connect(display_, &ClassicDisplay::preampGainChanged,
+            audio_, &ModuleAudio::setPreampDb);
 
     // One compact control strip. The transport keys occupy the full height
     // of the two-row command bank: no staggered vertical alignment or
