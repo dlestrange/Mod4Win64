@@ -543,7 +543,15 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* effectsTimer = new QTimer(this);
     effectsTimer->setInterval(50);
     connect(effectsTimer, &QTimer::timeout, this, [this] {
-        if (effects_->isVisible()) effects_->setSnapshot(audio_->effectsSnapshot());
+        // Consume the timestamped presentation state ONCE. Sharing it with
+        // Effects and the main LCD prevents either window from advancing
+        // independently of the sound actually leaving the audio device.
+        const EffectSnapshot snapshot=audio_->effectsSnapshot();
+        display_->setPlaybackCounters(snapshot.elapsedSeconds,
+            lcdSongIndex_,lcdSongTotal_,
+            snapshot.moduleIdentity.isEmpty()?0:snapshot.order+1,
+            snapshot.orderCount);
+        if (effects_->isVisible()) effects_->setSnapshot(snapshot);
     });
     effectsTimer->start();
 }
@@ -562,7 +570,14 @@ void ClassicPlayer::chooseTrack(const QString& path) {
     // and the on-disk filename. Keep both available after load.
     display_->setModuleNames(audio_->moduleTitle(),
                              QFileInfo(path).fileName());
-    effects_->setSnapshot(audio_->effectsSnapshot());
+    const QStringList queue=jukebox_->tracks();
+    lcdSongTotal_=qMax(1,int(queue.size()));
+    const int queuePosition=queue.indexOf(path);
+    lcdSongIndex_=queuePosition>=0?queuePosition+1:1;
+    const EffectSnapshot initial=audio_->effectsSnapshot();
+    display_->setPlaybackCounters(initial.elapsedSeconds,
+        lcdSongIndex_,lcdSongTotal_,initial.order+1,initial.orderCount);
+    effects_->setSnapshot(initial);
     refreshModuleInfo();
     audio_->play();
 }
