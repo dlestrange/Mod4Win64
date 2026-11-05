@@ -170,9 +170,11 @@ protected:
         p.translate(left,baseline);
         p.scale(scale,scale);
 
+        p.save();
         p.translate(-a.left(),0);
         p.fillPath(word,QColor("#184c2a"));
-        p.translate(a.width()+gap,-b.left());
+        p.restore();
+        p.translate(a.width()+gap-b.left(),0);
 
         // Slight offset shadow plus a restrained brighter inner highlight
         // gives the 64 its own retro-logo personality without WordArt.
