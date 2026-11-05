@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <QSet>
 
 ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {
@@ -30,6 +31,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    destroy_=reinterpret_cast<DestroyFn>(library_.resolve("openmpt_module_destroy"));
    seek_=reinterpret_cast<SeekFn>(library_.resolve("openmpt_module_set_position_seconds"));
    position_=reinterpret_cast<PositionFn>(library_.resolve("openmpt_module_get_position_seconds"));
+   duration_=reinterpret_cast<PositionFn>(library_.resolve("openmpt_module_get_duration_seconds"));
    metadata_=reinterpret_cast<MetadataFn>(library_.resolve("openmpt_module_get_metadata"));
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
    numChannels_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_channels"));
@@ -163,6 +165,7 @@ void ModuleAudio::pauseResume() {
  else { pumpTimer_.stop(); sink_->suspend(); paused_=true; emit stateChanged("PAUSED"); }
 }
 void ModuleAudio::stop() {
+ seeking_=false; seekWasPlaying_=false; seekWasPaused_=false;
  playing_=false; paused_=false;
  pumpTimer_.stop(); pending_.clear(); outputDevice_=nullptr;
  effectHistory_.clear();
@@ -171,6 +174,51 @@ void ModuleAudio::stop() {
  if(isOpen()) close();
  if (module_ && seek_) seek_(module_,0.0);
  emit stateChanged("STOPPED");
+}
+void ModuleAudio::beginSeek() {
+ if(!module_ || !seek_ || seeking_) return;
+ const EffectSnapshot audible=effectsSnapshot();
+ seekWasPlaying_=playing_ && !paused_;
+ seekWasPaused_=playing_ && paused_;
+ // Stop audio immediately; discard pending PCM and its timestamped states.
+ // Do not use stop(), which would seek the module back to zero.
+ pumpTimer_.stop();
+ playing_=false;
+ paused_=false;
+ pending_.clear();
+ outputDevice_=nullptr;
+ effectHistory_.clear();
+ if(sink_) { sink_->stop(); sink_.reset(); }
+ const double current=std::max(0.0,audible.elapsedSeconds);
+ seek_(module_,current);
+ presentedEffects_=decoderSnapshot();
+ seeking_=true;
+ emit stateChanged("SEEKING");
+}
+void ModuleAudio::seekBy(double seconds) {
+ if(!module_ || !seek_ || !seeking_) return;
+ const double current=position_?position_(module_):0.0;
+ const double duration=duration_?duration_(module_):0.0;
+ // Avoid seeking exactly to EOF, which may immediately signal completion
+ // when normal playback resumes.
+ const double maximum=duration>0.1?duration-0.05:std::max(0.0,current+std::abs(seconds));
+ const double target=std::clamp(current+seconds,0.0,maximum);
+ seek_(module_,target);
+ presentedEffects_=decoderSnapshot();
+}
+void ModuleAudio::endSeek() {
+ if(!seeking_) return;
+ const bool resume=seekWasPlaying_;
+ const bool restorePause=seekWasPaused_;
+ seeking_=false;
+ seekWasPlaying_=false;
+ seekWasPaused_=false;
+ if(resume || restorePause) {
+     play();
+     if(restorePause && playing_) pauseResume();
+ } else {
+     emit stateChanged("READY");
+ }
 }
 bool ModuleAudio::isPlaying() const { return playing_; }
 bool ModuleAudio::isPaused() const { return paused_; }
