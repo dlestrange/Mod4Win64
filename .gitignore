@@ -6,3 +6,6 @@ CMakeUserPresets.json
 *.user
 *.suo
 .DS_Store
+
+# Locally staged Windows release files
+dist/
