@@ -2,6 +2,7 @@
 #include <QWidget>
 #include <QDialog>
 #include <QStringList>
+#include <QVector>
 class QLabel;
 class QListWidget;
 class QFileSystemModel;
@@ -41,6 +42,10 @@ public:
 private:
     void chooseTrack(const QString& path);
     void stepPlaylist(int direction);
+    bool advancePlaylist(int direction, bool wrap);
+    void rebuildPlayOrder();
+    void syncModeDisplay();
+    void handleModuleEnd();
     void showQuickPlaylist(const QPoint& globalPosition);
     void setPanelVisible(QWidget* panel);
     QLabel* title_ = nullptr;
@@ -74,4 +79,10 @@ private:
     QPushButton* stopButton_ = nullptr;
     QTimer* seekTimer_ = nullptr;
     int seekDirection_ = 0;
+    bool shuffleEnabled_ = false;
+    int repeatMode_ = 0; // off -> all -> one
+    bool introscanEnabled_ = false;
+    bool remainingTime_ = false;
+    QVector<int> playOrder_;
+    double currentModuleDuration_ = 0.0;
 };
