@@ -11,6 +11,8 @@ public:
     void setDiagnostics(quint64 frames, quint64 nonzero);
     void setPlaybackCounters(double seconds, int songIndex, int songTotal,
                              int orderIndex, int orderTotal);
+    void setPlaybackModes(bool shuffle, int repeatMode, bool introScan, bool remaining);
+    void setModuleDuration(double seconds);
     QSize sizeHint() const override { return {626, 96}; }
 signals:
     void titleMatrixClicked(const QPoint& globalPosition);
@@ -28,6 +30,11 @@ private:
     void setPreampFromY(qreal widgetY);
     QString state_ = "STOPPED";
     double elapsedSeconds_ = 0.0;
+    double moduleDuration_ = 0.0;
+    bool shuffle_ = false;
+    int repeatMode_ = 0; // 0=off, 1=all, 2=one
+    bool introScan_ = false;
+    bool remaining_ = false;
     int songIndex_ = 0;
     int songTotal_ = 0;
     int orderIndex_ = 0;
