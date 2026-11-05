@@ -843,23 +843,60 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
     list->setFocus();
 }
 
-void ClassicPlayer::stepPlaylist(int direction) {
-    if(seekDirection_!=0) return;
-    const QStringList playlist=jukebox_->tracks();
-    if(playlist.isEmpty()) return;
-    const int current=lcdSongIndex_-1;
-    const int nextIndex=current+direction;
-    if(nextIndex<0 || nextIndex>=playlist.size()) return;
-    chooseTrack(playlist.at(nextIndex));
-    // Preserve the exact playlist index even when duplicate file paths exist.
-    // chooseTrack otherwise finds the first matching filename.
-    if(audio_->moduleInfo().filePath==playlist.at(nextIndex)) {
-        lcdSongIndex_=nextIndex+1;
-        lcdSongTotal_=playlist.size();
-        const EffectSnapshot snapshot=audio_->effectsSnapshot();
-        display_->setPlaybackCounters(snapshot.elapsedSeconds,
-            lcdSongIndex_,lcdSongTotal_,snapshot.order+1,snapshot.orderCount);
+void ClassicPlayer::syncModeDisplay() {
+    display_->setPlaybackModes(shuffleEnabled_,repeatMode_,
+                               introscanEnabled_,remainingTime_);
+}
+void ClassicPlayer::rebuildPlayOrder() {
+    const int count=jukebox_->tracks().size();
+    playOrder_.clear();
+    for(int i=0;i<count;++i) playOrder_.append(i);
+    if(!shuffleEnabled_ || count<2) return;
+    // Fisher-Yates, then place the currently selected track first.
+    // The order remains stable until Shuffle is toggled or queue changes.
+    for(int i=count-1;i>0;--i) {
+        const int j=QRandomGenerator::global()->bounded(i+1);
+        playOrder_.swapItemsAt(i,j);
     }
+    const int current=playOrder_.indexOf(lcdSongIndex_-1);
+    if(current>0) playOrder_.swapItemsAt(0,current);
+}
+bool ClassicPlayer::advancePlaylist(int direction,bool wrap) {
+    if(seekDirection_!=0) return false;
+    const QStringList playlist=jukebox_->tracks();
+    if(playlist.isEmpty()) return false;
+    if(playOrder_.size()!=playlist.size()) rebuildPlayOrder();
+    const int currentPos=playOrder_.indexOf(lcdSongIndex_-1);
+    if(currentPos<0) return false;
+    int nextPos=currentPos+direction;
+    if(nextPos<0 || nextPos>=playOrder_.size()) {
+        if(!wrap) return false;
+        nextPos=nextPos<0?playOrder_.size()-1:0;
+    }
+    const int nextIndex=playOrder_.at(nextPos);
+    const QString path=playlist.at(nextIndex);
+    chooseTrack(path);
+    if(audio_->moduleInfo().filePath!=path) return false;
+    // Preserve the selected entry if the queue contains duplicate paths.
+    lcdSongIndex_=nextIndex+1;
+    lcdSongTotal_=playlist.size();
+    const EffectSnapshot snapshot=audio_->effectsSnapshot();
+    display_->setPlaybackCounters(snapshot.elapsedSeconds,
+        lcdSongIndex_,lcdSongTotal_,snapshot.order+1,snapshot.orderCount);
+    return true;
+}
+void ClassicPlayer::stepPlaylist(int direction) {
+    advancePlaylist(direction,repeatMode_==1);
+}
+void ClassicPlayer::handleModuleEnd() {
+    // The audio engine has already stopped the completed track before this
+    // signal. Never apply a second stop after loading the next track.
+    if(!introscanEnabled_ && repeatMode_==2) {
+        audio_->play(); // stopped module is rewound to its beginning
+        return;
+    }
+    // Intro scanning always advances instead of repeating one entry.
+    advancePlaylist(1,repeatMode_==1);
 }
 void ClassicPlayer::setPanelVisible(QWidget* panel) {
     panel->show();
