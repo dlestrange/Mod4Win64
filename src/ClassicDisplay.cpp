@@ -163,6 +163,13 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
         event->accept();
         return;
     }
+    // The whole audio-status LCD is one control; PREAMP remains separate.
+    if(event->button()==Qt::LeftButton &&
+       QRectF(417,2,156,94).contains(logical)) {
+        emit outputModeRequested((outputMode_+1)%3);
+        event->accept();
+        return;
+    }
     if(event->button()==Qt::LeftButton &&
        QRectF(577,2,47,94).contains(logical)) {
         draggingPreamp_=true;
@@ -240,6 +247,22 @@ void ClassicDisplay::setModuleDuration(double seconds) {
     moduleDuration_=std::max(0.0,seconds);
     update();
 }
+void ClassicDisplay::setOutputMode(int mode) {
+    outputMode_=std::clamp(mode,0,2);
+    setToolTip(outputMode_==0?"Mono output — click for Stereo":
+        outputMode_==1?"Stereo output — click for Surround":
+                       "Surround (stereo widening) — click for Mono");
+    update();
+}
+void ClassicDisplay::setAudioOutputStatus(int channels,int bpm,
+                                          float left,float right,bool clipping) {
+    audioChannels_=channels;
+    audioBpm_=bpm;
+    outputLevelLeft_=std::clamp(left,0.0f,1.0f);
+    outputLevelRight_=std::clamp(right,0.0f,1.0f);
+    audioClipped_=clipping;
+    update();
+}
 void ClassicDisplay::paintEvent(QPaintEvent*) {
     QImage canvas(W,H,QImage::Format_ARGB32_Premultiplied);
     canvas.fill(QColor("#c0c0c0"));
@@ -315,11 +338,54 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.drawText(299,84,"of");
     digits(p,316,64,twoDigits(orderTotal_),2);
 
+    // Modernised audio-status LCD. The current QAudioSink uses 48 kHz,
+    // signed 16-bit, two-channel PCM. CH is the module's tracker channels.
     p.drawText(424,18,"48kHz 16Bit");
-    p.drawText(424,35,"STEREO");
-    p.drawText(424,52,"CH: -- BPM: ---");
-    p.drawText(424,68,state_.left(16).toUpper());
-    p.drawText(424,83,nonzero_?"AUDIO ACTIVE":"AUDIO IDLE");
+    p.drawText(424,35,QString("%1Ch BPM:%2")
+        .arg(audioChannels_>0?QString::number(audioChannels_):"--")
+        .arg(audioBpm_>0?QString::number(audioBpm_):"---"));
+    p.drawText(424,52,outputMode_==0?"MONO":
+        outputMode_==1?"STEREO":"SURROUND");
+    p.drawText(424,68,state_.left(15).toUpper());
+
+    // Compact speaker glyph. More radiating waves denote greater spatial
+    // width, making all three selected modes distinguishable at a glance.
+    p.save();
+    p.setClipRect(QRect(542,5,27,27));
+    const QColor speakerInk("#35f046");
+    p.setPen(Qt::NoPen);
+    p.setBrush(speakerInk);
+    p.drawRect(544,14,4,8);
+    p.drawPolygon(QPolygonF{QPointF(548,14),QPointF(553,9),
+                            QPointF(553,27),QPointF(548,22)});
+    p.setPen(QPen(speakerInk,1.5));
+    p.setBrush(Qt::NoBrush);
+    if(outputMode_>=1) p.drawArc(QRect(550,11,11,14),-65*16,130*16);
+    if(outputMode_>=2) p.drawArc(QRect(547,7,21,22),-65*16,130*16);
+    p.restore();
+
+    // Post-PREAMP L/R meters. Green -> amber -> red at high peaks.
+    // Same control displays both: no need for a separate Mixer window.
+    p.setFont(small);
+    p.setPen(lit);
+    p.drawText(424,83,"L");
+    p.drawText(424,92,"R");
+    const auto levelBar=[&](int y,float level) {
+        constexpr int cells=15,cellWidth=8,step=9;
+        const int active=std::clamp(int(std::lround(level*cells)),0,cells);
+        for(int i=0;i<cells;++i) {
+            const QColor ink=i>=13?QColor("#ec3b28"):
+                i>=10?QColor("#f1d02e"):QColor("#26df3b");
+            p.fillRect(435+i*step,y,cellWidth,5,
+                       i<active?ink:QColor("#113a19"));
+        }
+    };
+    levelBar(77,outputLevelLeft_);
+    levelBar(86,outputLevelRight_);
+    if(audioClipped_) {
+        p.setPen(QColor("#ff492d"));
+        p.drawText(510,68,"CLIP");
+    }
 
     // PREAMP is a miniature graphical slider. The coloured glyphs remain
     // unchanged at every gain setting; only the bar BEHIND them moves.
