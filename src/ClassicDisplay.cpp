@@ -135,6 +135,10 @@ void bevel(QPainter& p,const QRect& r) {
     p.drawLine(r.topRight(),r.bottomRight());
 }
 }
+void ClassicDisplay::paintDotMatrix(QPainter& painter,const QRect& area,
+                                    const QString& title) {
+    drawMatrix(painter,area,title);
+}
 ClassicDisplay::ClassicDisplay(QWidget* parent) : QWidget(parent) {
     setMinimumSize(350,96);
     showFilename_=QSettings("Mod4Win64","Mod4Win64")
