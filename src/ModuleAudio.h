@@ -143,7 +143,12 @@ private:
  double currentGain_ = 1.0;
  std::atomic<int> outputMode_{1};
  double currentStereoWidth_ = 1.0;
- double currentOutputTrim_ = 1.0;
+ // Classic-style spatialisation: a gentle delayed side signal, never
+ // discrete 5.1. Mono fold-down cancels the added side component.
+ static constexpr int surroundDelayFrames_ = 576; // 12ms at 48kHz
+ QVector<double> surroundSideDelay_ = QVector<double>(surroundDelayFrames_,0.0);
+ int surroundDelayHead_ = 0;
+ double currentSurroundMix_ = 0.0;
  std::atomic<float> outputPeakLeft_{0.0f};
  std::atomic<float> outputPeakRight_{0.0f};
  std::atomic<bool> outputClipped_{false};
