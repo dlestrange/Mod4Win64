@@ -356,6 +356,10 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
         directories_->setRootIndex(model_->index(rootPath));
         selectFolder(home.startsWith(rootPath, Qt::CaseInsensitive) ? home : rootPath);
     }
+    // Restore only after the directory browser has finished initialising.
+    // Merely browsing folders calls updateCount(), so it must never overwrite
+    // a persisted queue.
+    restorePlaylist();
     updateCount();
 }
 
@@ -365,11 +369,34 @@ QStringList JukeboxWindow::tracks() const {
         result << queue_->item(i)->data(Qt::UserRole).toString();
     return result;
 }
+void JukeboxWindow::savePlaylist() const {
+    // Store the actual file paths, not the display labels. QStringList
+    // preserves order and intentional duplicate occurrences.
+    QSettings settings("Mod4Win64","Mod4Win64");
+    settings.setValue("playlist/paths",tracks());
+    settings.sync();
+}
+void JukeboxWindow::restorePlaylist() {
+    const QSettings settings("Mod4Win64","Mod4Win64");
+    const QStringList paths=settings.value("playlist/paths").toStringList();
+    for(const QString& path:paths) {
+        if(path.isEmpty()) continue;
+        // Keep paths even when a drive is temporarily disconnected;
+        // the user can reconnect it or remove the entry from the queue.
+        auto* item=new QListWidgetItem(QFileInfo(path).fileName(),queue_);
+        item->setData(Qt::UserRole,path);
+        if(!QFileInfo::exists(path))
+            item->setToolTip("Currently unavailable: "+path);
+        else
+            item->setToolTip(path);
+    }
+}
 void JukeboxWindow::removeQueueEntry(int index) {
     if(index<0 || index>=queue_->count()) return;
     delete queue_->takeItem(index);
     emit queueEntryRemoved(index);
     updateCount();
+    savePlaylist();
 }
 void JukeboxWindow::reorderQueue(const QVector<int>& newToOld) {
     const int count=queue_->count();
@@ -385,6 +412,7 @@ void JukeboxWindow::reorderQueue(const QVector<int>& newToOld) {
     for(int oldIndex:newToOld) queue_->addItem(original[oldIndex]);
     emit queueReordered(newToOld);
     updateCount();
+    savePlaylist();
 }
 void JukeboxWindow::addSelectedFiles() {
     for (QListWidgetItem* item : files_->selectedItems()) {
@@ -392,6 +420,7 @@ void JukeboxWindow::addSelectedFiles() {
         next->setData(Qt::UserRole, item->data(Qt::UserRole));
     }
     updateCount();
+    savePlaylist();
 }
 void JukeboxWindow::addSelectedDirectoryFiles() {
     for (int i = 0; i < files_->count(); ++i) {
@@ -400,6 +429,7 @@ void JukeboxWindow::addSelectedDirectoryFiles() {
         next->setData(Qt::UserRole, item->data(Qt::UserRole));
     }
     updateCount();
+    savePlaylist();
 }
 void JukeboxWindow::removeSelected() {
     QVector<int> indices;
