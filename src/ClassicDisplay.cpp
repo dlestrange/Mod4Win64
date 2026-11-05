@@ -166,6 +166,14 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
         event->accept();
         return;
     }
+    // The original title LCD doubles as a quick playlist picker.
+    // The narrow title/filename switch and PREAMP have priority above.
+    if(event->button()==Qt::LeftButton &&
+       QRectF(2,2,381,39).contains(logical)) {
+        emit titleMatrixClicked(mapToGlobal(event->position().toPoint()));
+        event->accept();
+        return;
+    }
     QWidget::mousePressEvent(event);
 }
 void ClassicDisplay::setPreampFromY(qreal widgetY) {
