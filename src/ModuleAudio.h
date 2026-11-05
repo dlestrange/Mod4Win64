@@ -54,6 +54,7 @@ public:
  void restart();
  void pumpAudio();
  void stop();
+ void setPreampDb(int decibels);
  // Scrub silently while a navigation button is held, then resume on release.
  void beginSeek();
  void seekBy(double seconds);
@@ -124,6 +125,9 @@ private:
  QQueue<TimedEffects> effectHistory_;
  EffectSnapshot presentedEffects_;
  EffectSnapshot decoderSnapshot() const;
+ // Target gain is atomic; smoothing runs on the audio generation path.
+ std::atomic<int> preampDb_{0};
+ double currentGain_ = 1.0;
  std::atomic<quint64> decodedFrames_{0};
  std::atomic<quint64> nonzeroSamples_{0};
 };
