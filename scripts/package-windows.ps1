@@ -49,6 +49,19 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 $stageExe = Join-Path $stage "Mod4Win64.exe"
 Copy-Item -LiteralPath $exe -Destination $stageExe
 Copy-Item -LiteralPath $openmpt -Destination (Join-Path $stage "libopenmpt.dll")
+# The official libopenmpt DLL is NOT standalone: it loads these three
+# companion DLLs on Windows. windeployqt cannot discover them because the
+# application loads libopenmpt dynamically rather than linking against it.
+# Fail the package if any are absent instead of shipping a broken ZIP.
+$decoderFolder = Split-Path -Parent $openmpt
+$openmptCompanions = @("openmpt-mpg123.dll", "openmpt-vorbis.dll", "openmpt-zlib.dll")
+foreach ($name in $openmptCompanions) {
+    $source = Join-Path $decoderFolder $name
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "Missing libopenmpt companion DLL: $source. Use the full matching x64 libopenmpt distribution."
+    }
+    Copy-Item -LiteralPath $source -Destination (Join-Path $stage $name)
+}
 foreach ($dll in $ExtraDlls) {
     $file = FullPath $dll
     if (-not (Test-Path $file)) { throw "Additional DLL not found: $file" }
