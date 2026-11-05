@@ -8,6 +8,8 @@
 #include <QApplication>
 #include <QAbstractItemView>
 #include <QDir>
+#include <QDropEvent>
+#include <functional>
 #include <QComboBox>
 #include <QStorageInfo>
 #include <QFileInfo>
@@ -148,6 +150,18 @@ protected:
         p.drawLine(width()-1,0,width()-1,height()-1);
         const QRect lcd=rect().adjusted(3,3,-4,-4);
         ClassicDisplay::paintDotMatrix(p,lcd,text());
+    }
+};
+// Internal QListWidget moves do not consistently emit rowsMoved across Qt
+// versions. Observe accepted drop completion instead of model signals.
+class PlaylistEditorList final : public QListWidget {
+public:
+    explicit PlaylistEditorList(QWidget* parent) : QListWidget(parent) {}
+    std::function<void()> afterInternalDrop;
+protected:
+    void dropEvent(QDropEvent* event) override {
+        QListWidget::dropEvent(event);
+        if(event->isAccepted() && afterInternalDrop) afterInternalDrop();
     }
 };
 QLabel* led(const QString& value, QWidget* parent, int height = 32) {
@@ -841,7 +855,7 @@ void ClassicPlayer::showQuickPlaylistEditor() {
         "Double-click to remove from playlist. Drag to reorder.\n"
         "Original module files are never deleted.",editor);
     root->addWidget(help);
-    auto* list=new QListWidget(editor);
+    auto* list=new PlaylistEditorList(editor);
     list->setSelectionMode(QAbstractItemView::SingleSelection);
     list->setDragDropMode(QAbstractItemView::InternalMove);
     list->setDefaultDropAction(Qt::MoveAction);
@@ -872,19 +886,18 @@ void ClassicPlayer::showQuickPlaylistEditor() {
             jukebox_->removeQueueEntry(index);
             populate();
         });
-    // Let Qt finish its internal drag/drop move before reading the resulting
-    // item sequence. This permutation updates the real Jukebox queue.
-    connect(list->model(),&QAbstractItemModel::rowsMoved,editor,
-        [this,list,populate] {
-            QTimer::singleShot(0,list,[this,list,populate] {
-                QVector<int> newToOld;
-                newToOld.reserve(list->count());
-                for(int row=0;row<list->count();++row)
-                    newToOld.append(list->item(row)->data(Qt::UserRole).toInt());
-                jukebox_->reorderQueue(newToOld);
-                populate();
-            });
+    // Qt may report a QListWidget internal drag as inserted/removed rows
+    // rather than rowsMoved. Use the accepted drop as the single signal.
+    list->afterInternalDrop=[this,list,populate] {
+        QTimer::singleShot(0,list,[this,list,populate] {
+            QVector<int> newToOld;
+            newToOld.reserve(list->count());
+            for(int row=0;row<list->count();++row)
+                newToOld.append(list->item(row)->data(Qt::UserRole).toInt());
+            jukebox_->reorderQueue(newToOld);
+            populate();
         });
+    };
     connect(jukebox_,&JukeboxWindow::queueUpdated,editor,
         [populate](int) { populate(); });
     editor->show();
