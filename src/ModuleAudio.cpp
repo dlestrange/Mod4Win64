@@ -9,8 +9,16 @@
 #include <algorithm>
 #include <cmath>
 #include <QSet>
+#include <QSettings>
 
 ModuleAudio::ModuleAudio(QObject* parent) : QIODevice(parent) {
+ QSettings settings("Mod4Win64","Mod4Win64");
+ const int filter=settings.value("audio/interpolation",0).toInt();
+ interpolationTaps_=(filter==0 || filter==2 || filter==4 || filter==8)?filter:0;
+ stereoSeparation_=std::clamp(settings.value("audio/stereoSeparation",100).toInt(),0,200);
+ rampStrength_=std::clamp(settings.value("audio/rampStrength",-1).toInt(),-1,10);
+ preampDb_.store(std::clamp(settings.value("audio/defaultPreampDb",0).toInt(),-20,20));
+ currentGain_=std::pow(10.0,preampDb_.load()/20.0);
  pumpTimer_.setInterval(10);
  connect(&pumpTimer_, &QTimer::timeout, this, &ModuleAudio::pumpAudio);
 }
@@ -32,6 +40,8 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    seek_=reinterpret_cast<SeekFn>(library_.resolve("openmpt_module_set_position_seconds"));
    position_=reinterpret_cast<PositionFn>(library_.resolve("openmpt_module_get_position_seconds"));
    duration_=reinterpret_cast<PositionFn>(library_.resolve("openmpt_module_get_duration_seconds"));
+   setRenderParam_=reinterpret_cast<SetRenderParamFn>(
+       library_.resolve("openmpt_module_set_render_param"));
    metadata_=reinterpret_cast<MetadataFn>(library_.resolve("openmpt_module_get_metadata"));
    freeString_=reinterpret_cast<FreeStringFn>(library_.resolve("openmpt_free_string"));
    numChannels_=reinterpret_cast<IntFn>(library_.resolve("openmpt_module_get_num_channels"));
@@ -65,6 +75,7 @@ bool ModuleAudio::load(const QString& path, QString* message) {
  if (bytes.isEmpty()) { if(message) *message="Module file is empty."; return false; }
  module_=create_(bytes.constData(),static_cast<size_t>(bytes.size()),nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
  if(!module_) { if(message) *message="Unable to decode this tracker module."; return false; }
+ applyRenderSettings();
  loadedPath_=path;
  title_=QFileInfo(path).fileName();
 
@@ -155,6 +166,26 @@ void ModuleAudio::pumpAudio() {
    pending_.remove(0, static_cast<qsizetype>(written));
    available -= static_cast<int>(written);
  }
+}
+void ModuleAudio::applyRenderSettings() {
+ if(!module_ || !setRenderParam_) return;
+ // These indices and values come from the public libopenmpt C API.
+ setRenderParam_(module_,2,stereoSeparation_);
+ setRenderParam_(module_,3,interpolationTaps_);
+ setRenderParam_(module_,4,rampStrength_);
+}
+void ModuleAudio::setInterpolation(int taps) {
+ if(taps!=0 && taps!=2 && taps!=4 && taps!=8) return;
+ interpolationTaps_=taps;
+ if(module_ && setRenderParam_) setRenderParam_(module_,3,taps);
+}
+void ModuleAudio::setStereoSeparation(int percent) {
+ stereoSeparation_=std::clamp(percent,0,200);
+ if(module_ && setRenderParam_) setRenderParam_(module_,2,stereoSeparation_);
+}
+void ModuleAudio::setVolumeRamping(int strength) {
+ rampStrength_=std::clamp(strength,-1,10);
+ if(module_ && setRenderParam_) setRenderParam_(module_,4,rampStrength_);
 }
 void ModuleAudio::setPreampDb(int decibels) {
  // Constrain externally supplied values to the physical slider's range.
