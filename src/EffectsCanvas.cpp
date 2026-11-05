@@ -2,6 +2,8 @@
 #include <QPainter>
 #include <QImage>
 #include <QFont>
+#include <QFontDatabase>
+#include <QPaintDevice>
 #include <algorithm>
 #include <cmath>
 
@@ -52,14 +54,17 @@ void EffectsCanvas::setSnapshot(const EffectSnapshot& snapshot) {
     update();
 }
 void EffectsCanvas::paintEvent(QPaintEvent*) {
-    // Paint once at the original logical resolution, then enlarge the whole
-    // bitmap with nearest-neighbour sampling. No individual font/line scaling.
+    // Paint every detail at the original 1x pixel resolution, independent
+    // of the desktop's DPI and display scale. Enlarge the finished bitmap
+    // with nearest-neighbour sampling; never scale individual fonts or lines.
     const QSize logical=logicalSize();
     QImage pixels(logical,QImage::Format_ARGB32_Premultiplied);
     QPainter p(&pixels);
     p.setRenderHint(QPainter::Antialiasing, false);
     const int w=logical.width(), h=logical.height();
-    p.fillRect(rect(), QColor("#c0c0c0"));
+    // QWidget::rect() is already scaled; the source bitmap is NOT.
+    // Filling in source coordinates avoids inconsistent edges at 150%.
+    p.fillRect(pixels.rect(), QColor("#c0c0c0"));
 
     auto frame=[&](const QRect& r, bool sunken) {
         const QColor light("#ffffff"), dark("#666666");
@@ -72,8 +77,15 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     };
     frame(QRect(0,0,w-1,h-1),false);
 
-    QFont tiny("Tahoma",7);
+    // Point-sized fonts vary with QImage DPI and the host OS. An explicit
+    // pixel height gives the same raster geometry on macOS and Windows.
+    const QString family = QFontDatabase::families().contains(
+        QStringLiteral("Tahoma"), Qt::CaseInsensitive)
+        ? QStringLiteral("Tahoma") : QStringLiteral("Arial");
+    QFont tiny(family);
+    tiny.setPixelSize(9);
     tiny.setStyleStrategy(QFont::NoAntialias);
+    tiny.setHintingPreference(QFont::PreferFullHinting);
     p.setFont(tiny);
     p.setPen(QColor("#101010"));
 
@@ -233,6 +245,10 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     p.end();
     QPainter output(this);
     output.setRenderHint(QPainter::SmoothPixmapTransform,false);
-    output.drawImage(rect(),pixels);
+    // Restrict the destination to our exact scaled content size rather than
+    // relying on QWidget::rect(), which can differ during a resize/layout
+    // event. Qt's nearest-neighbour path preserves the 1x pixel grid even
+    // at fractional factors such as 150% and on Retina screens.
+    output.drawImage(QRect(QPoint(0,0),sizeHint()),pixels,pixels.rect());
 
 }
