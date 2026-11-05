@@ -67,6 +67,35 @@ Glyph glyphFor(QChar c) {
         default: return {0,0,0,0,0,0,0};
     }
 }
+// Narrow 3x5 captions fit the original 19-pixel Note/Instrument headings.
+// Keep the full 5x7 bitmap font everywhere else.
+using SmallGlyph = std::array<quint8,5>;
+SmallGlyph smallGlyphFor(QChar c) {
+    switch(c.toUpper().toLatin1()) {
+    case 'N': return {0b101,0b111,0b111,0b111,0b101};
+    case 'O': return {0b111,0b101,0b101,0b101,0b111};
+    case 'T': return {0b111,0b010,0b010,0b010,0b010};
+    case 'E': return {0b111,0b100,0b110,0b100,0b111};
+    case 'I': return {0b111,0b010,0b010,0b010,0b111};
+    case 'S': return {0b111,0b100,0b111,0b001,0b111};
+    case 'L': return {0b100,0b100,0b100,0b100,0b111};
+    case 'R': return {0b110,0b101,0b110,0b101,0b101};
+    default: return {0,0,0,0,0};
+    }
+}
+void drawSmallCaption(QPainter& p,const QRect& area,const QString& label) {
+    const int width=label.size()*4-1;
+    const int x=area.left()+(area.width()-width)/2;
+    const int y=area.top()+(area.height()-5)/2;
+    const QColor ink=p.pen().color();
+    for(int i=0;i<label.size();++i) {
+        const SmallGlyph glyph=smallGlyphFor(label[i]);
+        for(int row=0;row<5;++row)
+            for(int col=0;col<3;++col)
+                if(glyph[row] & (1u<<(2-col)))
+                    p.fillRect(x+i*4+col,y+row,1,1,ink);
+    }
+}
 int pixelTextWidth(const QString& text) {
     return text.isEmpty()?0:text.size()*6-1;
 }
@@ -252,11 +281,13 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     const int seconds=std::max(0,static_cast<int>(snapshot_.elapsedSeconds));
     const QString elapsed=QString("%1:%2").arg(seconds/60).arg(seconds%60,2,10,QChar('0'));
     drawPixelText(p,w-37,57,snapshot_.channels?elapsed:"--:--");
-    drawPixelText(p,w-88,73,"Note");
-    // Align each heading over its outward-growing half-meter.
-    drawPixelText(p,QRect(w-70,64,20,10),Qt::AlignCenter,"L");
-    drawPixelText(p,QRect(w-48,64,20,10),Qt::AlignCenter,"R");
-    drawPixelText(p,w-26,73,"Inst.");
+    // The tracker headings are only ~19 logical pixels wide. The 5x7
+    // typeface cannot fit NOTE / INST without running into adjacent labels.
+    // Draw only these four headings with a narrower 3x5 bitmap face.
+    drawSmallCaption(p,QRect(w-90,65,18,9),"NOTE");
+    drawSmallCaption(p,QRect(w-70,65,20,9),"L");
+    drawSmallCaption(p,QRect(w-49,65,20,9),"R");
+    drawSmallCaption(p,QRect(w-27,65,19,9),"INST");
 
     if(snapshot_.channels>0) {
         const int bodyHeight=snapshot_.channels*rowHeight+4;
