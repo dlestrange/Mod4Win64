@@ -20,6 +20,7 @@ public:
     explicit JukeboxWindow(QWidget* parent = nullptr);
     QStringList tracks() const;
     void removeQueueEntry(int index);
+    void clearQueue();
     void reorderQueue(const QVector<int>& newToOld);
 signals:
     void trackChosen(const QString& path);
