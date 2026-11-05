@@ -596,7 +596,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     connect(seekTimer_,&QTimer::timeout,this,[this] {
         if(seekDirection_!=0) audio_->seekBy(1.2*seekDirection_);
     });
-    const beginHeldSeek=[this](int direction) {
+    const auto beginHeldSeek=[this](int direction) {
         if(seekDirection_!=0) return;
         audio_->beginSeek();
         if(!audio_->isSeeking()) return;
@@ -604,7 +604,7 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         audio_->seekBy(1.0*direction);
         seekTimer_->start();
     };
-    const endHeldSeek=[this] {
+    const auto endHeldSeek=[this] {
         if(seekDirection_==0) return;
         seekTimer_->stop();
         seekDirection_=0;
