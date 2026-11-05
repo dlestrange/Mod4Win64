@@ -55,6 +55,13 @@ public:
  void pumpAudio();
  void stop();
  void setPreampDb(int decibels);
+ // Two-channel output processing: 0 mono, 1 stereo, 2 widened stereo.
+ void setOutputMode(int mode);
+ int outputMode() const { return outputMode_.load(); }
+ // Peak meters reflect post-processing PCM (not tracker channel VUs).
+ float takeOutputPeakLeft() { return outputPeakLeft_.exchange(0.0f); }
+ float takeOutputPeakRight() { return outputPeakRight_.exchange(0.0f); }
+ bool takeOutputClip() { return outputClipped_.exchange(false); }
  // Scrub silently while a navigation button is held, then resume on release.
  void beginSeek();
  void seekBy(double seconds);
@@ -128,6 +135,12 @@ private:
  // Target gain is atomic; smoothing runs on the audio generation path.
  std::atomic<int> preampDb_{0};
  double currentGain_ = 1.0;
+ std::atomic<int> outputMode_{1};
+ double currentStereoWidth_ = 1.0;
+ double currentOutputTrim_ = 1.0;
+ std::atomic<float> outputPeakLeft_{0.0f};
+ std::atomic<float> outputPeakRight_{0.0f};
+ std::atomic<bool> outputClipped_{false};
  std::atomic<quint64> decodedFrames_{0};
  std::atomic<quint64> nonzeroSamples_{0};
 };
