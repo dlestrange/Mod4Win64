@@ -143,6 +143,9 @@ ClassicDisplay::ClassicDisplay(QWidget* parent) : QWidget(parent) {
     setMinimumSize(350,96);
     showFilename_=QSettings("Mod4Win64","Mod4Win64")
         .value("appearance/showModuleFilename",false).toBool();
+    // Default value is set in Setup. The live PREAMP stays independent.
+    preampDb_=std::clamp(QSettings("Mod4Win64","Mod4Win64")
+        .value("audio/defaultPreampDb",0).toInt(),-20,20);
 }
 void ClassicDisplay::setTitle(const QString& title) { title_=title; update(); }
 void ClassicDisplay::setModuleNames(const QString& title,const QString& filename) {
@@ -187,17 +190,19 @@ void ClassicDisplay::mousePressEvent(QMouseEvent* event) {
     }
     QWidget::mousePressEvent(event);
 }
+void ClassicDisplay::setPreampDb(int db) {
+    db=std::clamp(db,-20,20);
+    if(preampDb_==db) return;
+    preampDb_=db;
+    emit preampGainChanged(db);
+    update();
+}
 void ClassicDisplay::setPreampFromY(qreal widgetY) {
     // Forty steps over the full travel, +20 dB at the top, -20 dB at
     // the bottom. Emit dB changes to the audio gain stage.
     const qreal y=widgetY*H/height();
     const int step=std::clamp(int(std::lround((y-9.0)*40.0/61.0)),0,40);
-    const int db=20-step;
-    if(preampDb_!=db) {
-        preampDb_=db;
-        emit preampGainChanged(db);
-        update();
-    }
+    setPreampDb(20-step);
 }
 void ClassicDisplay::mouseMoveEvent(QMouseEvent* event) {
     if(draggingPreamp_) {
