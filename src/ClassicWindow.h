@@ -32,6 +32,8 @@ private:
     void removeSelected();
     void shiftCurrent(int offset);
     void updateCount();
+    void savePlaylist() const;
+    void restorePlaylist();
     QFileSystemModel* model_ = nullptr;
     QTreeView* directories_ = nullptr;
     QListWidget* files_ = nullptr;
