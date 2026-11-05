@@ -4,10 +4,93 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QPaintDevice>
+#include <array>
 #include <algorithm>
 #include <cmath>
 
 namespace {
+// A small self-contained 5x7 bitmap font. Rendering platform fonts at
+// 7-9 pixels produces missing stems/counters on some macOS Retina displays,
+// particularly after 150% nearest-neighbour enlargement. Explicit bitmaps
+// guarantee identical readable letters for every output scale and OS.
+using Glyph = std::array<quint8,7>;
+Glyph glyphFor(QChar c) {
+    switch (c.toUpper().toLatin1()) {
+        case '0': return {0b01110, 0b10011, 0b10101, 0b10101, 0b11001, 0b10001, 0b01110};
+        case '1': return {0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110};
+        case '2': return {0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111};
+        case '3': return {0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110};
+        case '4': return {0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010};
+        case '5': return {0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110};
+        case '6': return {0b01111, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110};
+        case '7': return {0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000};
+        case '8': return {0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110};
+        case '9': return {0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b11110};
+        case ' ': return {0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000};
+        case 'A': return {0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001};
+        case 'B': return {0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110};
+        case 'C': return {0b01111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b01111};
+        case 'D': return {0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110};
+        case 'E': return {0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111};
+        case 'F': return {0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000};
+        case 'G': return {0b01111, 0b10000, 0b10000, 0b10111, 0b10001, 0b10001, 0b01111};
+        case 'H': return {0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001};
+        case 'I': return {0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111};
+        case 'J': return {0b00111, 0b00010, 0b00010, 0b00010, 0b10010, 0b10010, 0b01100};
+        case 'K': return {0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001};
+        case 'L': return {0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111};
+        case 'M': return {0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001};
+        case 'N': return {0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001};
+        case 'O': return {0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110};
+        case 'P': return {0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000};
+        case 'Q': return {0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101};
+        case 'R': return {0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001};
+        case 'S': return {0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110};
+        case 'T': return {0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100};
+        case 'U': return {0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110};
+        case 'V': return {0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100};
+        case 'W': return {0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010};
+        case 'X': return {0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001};
+        case 'Y': return {0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100};
+        case 'Z': return {0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111};
+        case ':': return {0b00000, 0b00100, 0b00100, 0b00000, 0b00100, 0b00100, 0b00000};
+        case '.': return {0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b01100, 0b01100};
+        case '-': return {0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000};
+        case '+': return {0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000};
+        case '#': return {0b01010, 0b11111, 0b01010, 0b01010, 0b11111, 0b01010, 0b00000};
+        case '/': return {0b00001, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b10000};
+        case '&': return {0b01100, 0b10010, 0b10100, 0b01000, 0b10101, 0b10010, 0b01101};
+        case '(': return {0b00010, 0b00100, 0b01000, 0b01000, 0b01000, 0b00100, 0b00010};
+        case ')': return {0b01000, 0b00100, 0b00010, 0b00010, 0b00010, 0b00100, 0b01000};
+        case '%': return {0b11001, 0b11010, 0b00010, 0b00100, 0b01000, 0b01011, 0b10011};
+        case '?': return {0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100};
+        default: return {0,0,0,0,0,0,0};
+    }
+}
+int pixelTextWidth(const QString& text) {
+    return text.isEmpty()?0:text.size()*6-1;
+}
+void drawPixelText(QPainter& p,int x,int baseline,const QString& text) {
+    const int top=baseline-7;
+    const QColor colour=p.pen().color();
+    for(const QChar c:text) {
+        const Glyph glyph=glyphFor(c);
+        for(int row=0;row<7;++row)
+            for(int col=0;col<5;++col)
+                if(glyph[row] & (1u<<(4-col)))
+                    p.fillRect(x+col,top+row,1,1,colour);
+        x+=6;
+    }
+}
+void drawPixelText(QPainter& p,const QRect& box,Qt::Alignment alignment,const QString& text) {
+    const int width=pixelTextWidth(text);
+    const int x=(alignment & Qt::AlignHCenter)?box.left()+(box.width()-width)/2
+               :(alignment & Qt::AlignRight)?box.right()-width+1:box.left();
+    const int top=(alignment & Qt::AlignVCenter)?box.top()+(box.height()-7)/2
+                  :(alignment & Qt::AlignBottom)?box.bottom()-6:box.top();
+    drawPixelText(p,x,top+7,text);
+}
+
 QString noteLabel(int note) {
     if (note < 1 || note > 120) return "---";
     static const char* names[]={"C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"};
@@ -77,16 +160,7 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     };
     frame(QRect(0,0,w-1,h-1),false);
 
-    // Point-sized fonts vary with QImage DPI and the host OS. An explicit
-    // pixel height gives the same raster geometry on macOS and Windows.
-    const QString family = QFontDatabase::families().contains(
-        QStringLiteral("Tahoma"), Qt::CaseInsensitive)
-        ? QStringLiteral("Tahoma") : QStringLiteral("Arial");
-    QFont tiny(family);
-    tiny.setPixelSize(9);
-    tiny.setStyleStrategy(QFont::NoAntialias);
-    tiny.setHintingPreference(QFont::PreferFullHinting);
-    p.setFont(tiny);
+    // No operating-system font dependencies in this tiny tracker panel.
     p.setPen(QColor("#101010"));
 
     // All geometry is derived from SOURCE/ana.pas: effects start at x=27,
@@ -105,10 +179,10 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
     p.save();
     p.translate(20,59);
     p.rotate(-90);
-    p.drawText(0,0,"Effects");
+    drawPixelText(p,0,0,"Effects");
     p.restore();
     // Original Mod4Win labels the small recessed channel-number heading.
-    p.drawText(QRect(7,64,17,11),Qt::AlignCenter,"Chn");
+    drawPixelText(p,QRect(7,64,17,11),Qt::AlignCenter,"Chn");
 
     // libopenmpt exposes OpenMPT's internal EffectCommand enum, NOT the
     // original MOD/XM effect nibble. These numeric IDs are defined in
@@ -161,28 +235,28 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         p.setClipRect(QRect(effectX+col*14,8,14,65));
         p.translate(effectX+col*14+10,72);
         p.rotate(-90);
-        p.drawText(0,0,effectName(snapshot_.usedCommands[col]));
+        drawPixelText(p,0,0,effectName(snapshot_.usedCommands[col]));
         p.restore();
     }
     const QString speed=snapshot_.channels?QString::number(snapshot_.speed):"--";
     const QString bpm=snapshot_.channels?QString::number(snapshot_.bpm):"--";
     p.setPen(QColor("#101010"));
-    p.drawText(w-88,18,"Speed:");
-    p.drawText(w-37,18,speed);
-    p.drawText(w-88,31,"BPM:");
-    p.drawText(w-37,31,bpm);
+    drawPixelText(p,w-88,18,"Speed:");
+    drawPixelText(p,w-37,18,speed);
+    drawPixelText(p,w-88,31,"BPM:");
+    drawPixelText(p,w-37,31,bpm);
     // Tracker rows are zero-based internally; Mod4Win displays 1-based notes.
-    p.drawText(w-88,44,"Note:");
-    p.drawText(w-37,44,snapshot_.channels?QString::number(snapshot_.row+1):"--");
-    p.drawText(w-88,57,"Time:");
+    drawPixelText(p,w-88,44,"Note:");
+    drawPixelText(p,w-37,44,snapshot_.channels?QString::number(snapshot_.row+1):"--");
+    drawPixelText(p,w-88,57,"Time:");
     const int seconds=std::max(0,static_cast<int>(snapshot_.elapsedSeconds));
     const QString elapsed=QString("%1:%2").arg(seconds/60).arg(seconds%60,2,10,QChar('0'));
-    p.drawText(w-37,57,snapshot_.channels?elapsed:"--:--");
-    p.drawText(w-88,73,"Note");
+    drawPixelText(p,w-37,57,snapshot_.channels?elapsed:"--:--");
+    drawPixelText(p,w-88,73,"Note");
     // Align each heading over its outward-growing half-meter.
-    p.drawText(QRect(w-70,64,20,10),Qt::AlignCenter,"L");
-    p.drawText(QRect(w-48,64,20,10),Qt::AlignCenter,"R");
-    p.drawText(w-26,73,"Inst.");
+    drawPixelText(p,QRect(w-70,64,20,10),Qt::AlignCenter,"L");
+    drawPixelText(p,QRect(w-48,64,20,10),Qt::AlignCenter,"R");
+    drawPixelText(p,w-26,73,"Inst.");
 
     if(snapshot_.channels>0) {
         const int bodyHeight=snapshot_.channels*rowHeight+4;
@@ -197,7 +271,7 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         p.setPen(QColor("#111111"));
         // Use a baseline rather than squeezing glyphs inside an 8-pixel QRect;
         // Tahoma's font metrics were clipping descenders/digit bottoms.
-        p.drawText(8,y+7,QString("%1").arg(ch+1,2,10,QChar(' ')));
+        drawPixelText(p,8,y+7,QString("%1").arg(ch+1,2,10,QChar(' ')));
         for(int col=0;col<snapshot_.usedCommands.size();++col) {
             const QRect cell(effectX+col*effectWidth,y,13,8);
             // Consistent green inset: avoid the previous cool-coloured strip
@@ -221,7 +295,7 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         const int note=channelActive && ch<heldNotes_.size()?heldNotes_[ch]:0;
         const int inst=channelActive && ch<heldInstruments_.size()?heldInstruments_[ch]:0;
         p.setPen(QColor("#161616"));
-        p.drawText(QRect(w-89,y,17,8),Qt::AlignCenter,noteLabel(note));
+        drawPixelText(p,QRect(w-89,y,17,8),Qt::AlignCenter,noteLabel(note));
         const int centre=w-49;
         const auto meter=[&](bool left,float level) {
             constexpr int segments=8, step=2;
@@ -240,7 +314,7 @@ void EffectsCanvas::paintEvent(QPaintEvent*) {
         meter(false,right);
         p.fillRect(centre,y,1,8,QColor("#b0b0b0"));
         p.setPen(QColor("#111111"));
-        p.drawText(QRect(w-25,y,16,8),Qt::AlignCenter,inst?QString::number(inst):"---");
+        drawPixelText(p,QRect(w-25,y,16,8),Qt::AlignCenter,inst?QString::number(inst):"---");
     }
     p.end();
     QPainter output(this);
