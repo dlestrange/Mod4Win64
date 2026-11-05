@@ -585,6 +585,12 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     auto* setupDialog = new SetupDialog(this);
     connect(setupButton, &QPushButton::clicked, setupDialog, &QDialog::show);
     connect(setupDialog, &SetupDialog::effectsScaleChanged, effects_, &EffectsWindow::setScaleMode);
+    connect(setupDialog,&SetupDialog::interpolationChanged,
+            audio_,&ModuleAudio::setInterpolation);
+    connect(setupDialog,&SetupDialog::stereoSeparationChanged,
+            audio_,&ModuleAudio::setStereoSeparation);
+    connect(setupDialog,&SetupDialog::rampStrengthChanged,
+            audio_,&ModuleAudio::setVolumeRamping);
     connect(helpButton, &QPushButton::clicked, this, [this] {
         QMessageBox::information(this, "Mod4Win64", 
             "Mod4Win64 is a revival of the classic Mod4Win player.\\n"
@@ -600,6 +606,8 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     // Default 0 dB maps to unity gain (no change to the sound).
     connect(display_, &ClassicDisplay::preampGainChanged,
             audio_, &ModuleAudio::setPreampDb);
+    connect(setupDialog,&SetupDialog::defaultPreampChanged,
+            display_,&ClassicDisplay::setPreampDb);
     // The full audio-status panel cycles Mono -> Stereo -> Surround.
     // Keep the selection across launches; it is a real DSP mode, not
     // just a visual indicator. Surround is widened 2-channel stereo.
@@ -608,13 +616,17 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
             .value("audio/outputMode",1).toInt(),0,2);
     audio_->setOutputMode(savedOutputMode);
     display_->setOutputMode(savedOutputMode);
-    connect(display_,&ClassicDisplay::outputModeRequested,this,
-        [this](int mode) {
-            audio_->setOutputMode(mode);
-            display_->setOutputMode(mode);
-            QSettings("Mod4Win64","Mod4Win64")
-                .setValue("audio/outputMode",mode);
-        });
+    const auto applyOutputMode=[this,setupDialog](int mode) {
+        audio_->setOutputMode(mode);
+        display_->setOutputMode(mode);
+        setupDialog->setOutputMode(mode);
+        QSettings("Mod4Win64","Mod4Win64")
+            .setValue("audio/outputMode",mode);
+    };
+    connect(display_,&ClassicDisplay::outputModeRequested,
+            this,applyOutputMode);
+    connect(setupDialog,&SetupDialog::outputModeChanged,
+            this,applyOutputMode);
 
     // One compact control strip. The transport keys occupy the full height
     // of the two-row command bank: no staggered vertical alignment or
