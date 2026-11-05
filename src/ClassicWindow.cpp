@@ -55,12 +55,24 @@ public:
     enum class Symbol { Stop, Play, Pause, Previous, Rewind, Forward, Next };
     explicit TransportButton(Symbol symbol,QWidget* parent)
         : QPushButton(parent), symbol_(symbol) {}
+    void setPlaybackActive(bool active) {
+        if(playbackActive_==active) return;
+        playbackActive_=active;
+        update();
+    }
 protected:
     void paintEvent(QPaintEvent* event) override {
         QPushButton::paintEvent(event); // Existing classic button frame.
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing,true);
-        const QColor ink=isEnabled()?QColor("#008e21"):QColor("#428b53");
+        // Playback buttons are bright only for their active state.
+        // Navigation buttons brighten for the duration of a mouse press.
+        const bool momentary=symbol_==Symbol::Previous ||
+            symbol_==Symbol::Rewind || symbol_==Symbol::Forward ||
+            symbol_==Symbol::Next;
+        const bool lit=momentary?isDown():playbackActive_;
+        const QColor ink=!isEnabled()?QColor("#376e48")
+            :lit?QColor("#49ef68"):QColor("#176b34");
         painter.setPen(Qt::NoPen);
         painter.setBrush(ink);
         const qreal scale=qMin((width()-10)/32.0,(height()-12)/24.0);
@@ -105,6 +117,7 @@ protected:
     }
 private:
     Symbol symbol_;
+    bool playbackActive_ = false;
 };
 QLabel* led(const QString& value, QWidget* parent, int height = 32) {
     auto* label = new QLabel(value, parent);
@@ -585,6 +598,19 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     connect(playButton_, &QPushButton::clicked, audio_, &ModuleAudio::play);
     connect(pauseButton_, &QPushButton::clicked, audio_, &ModuleAudio::pauseResume);
     connect(audio_, &ModuleAudio::stateChanged, display_, &ClassicDisplay::setState);
+    // Only the active transport state is illuminated. During seeking, all
+    // three remain dim; navigation highlights remain strictly press-driven.
+    auto* stopIcon=static_cast<TransportButton*>(stopButton_);
+    auto* playIcon=static_cast<TransportButton*>(playButton_);
+    auto* pauseIcon=static_cast<TransportButton*>(pauseButton_);
+    stopIcon->setPlaybackActive(true); // Startup: no module playing.
+    connect(audio_,&ModuleAudio::stateChanged,this,
+        [stopIcon,playIcon,pauseIcon](const QString& state) {
+            stopIcon->setPlaybackActive(state=="STOPPED" ||
+                state=="READY" || state=="NO MODULE LOADED");
+            playIcon->setPlaybackActive(state=="PLAYING");
+            pauseIcon->setPlaybackActive(state=="PAUSED");
+        });
     // Previous/next select adjacent queued modules; do not wrap here.
     connect(previous,&QPushButton::clicked,this,[this] { stepPlaylist(-1); });
     connect(next,&QPushButton::clicked,this,[this] { stepPlaylist(1); });
