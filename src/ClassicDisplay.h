@@ -16,6 +16,7 @@ public:
     QSize sizeHint() const override { return {626, 96}; }
 signals:
     void titleMatrixClicked(const QPoint& globalPosition);
+    void preampGainChanged(int decibels);
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -25,7 +26,7 @@ private:
     QString title_ = "NO MODULE LOADED";
     QString filename_;
     bool showFilename_ = false;
-    int preampDb_ = 0; // Display-only until the audio preamp is connected.
+    int preampDb_ = 0; // -20 to +20 dB, mirrored to audio by signal.
     bool draggingPreamp_ = false;
     void setPreampFromY(qreal widgetY);
     QString state_ = "STOPPED";
