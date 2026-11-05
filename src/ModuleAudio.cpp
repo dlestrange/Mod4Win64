@@ -113,6 +113,9 @@ void ModuleAudio::play() {
  decodedFrames_=0;
  nonzeroSamples_=0;
  effectHistory_.clear();
+ outputPeakLeft_.store(0.0f);
+ outputPeakRight_.store(0.0f);
+ outputClipped_.store(false);
  presentedEffects_=decoderSnapshot();
  playing_=true; paused_=false;
  pending_.clear();
@@ -176,6 +179,9 @@ void ModuleAudio::stop() {
  playing_=false; paused_=false;
  pumpTimer_.stop(); pending_.clear(); outputDevice_=nullptr;
  effectHistory_.clear();
+ outputPeakLeft_.store(0.0f);
+ outputPeakRight_.store(0.0f);
+ outputClipped_.store(false);
  presentedEffects_=EffectSnapshot{};
  if(sink_) { sink_->stop(); sink_.reset(); }
  if(isOpen()) close();
@@ -195,6 +201,9 @@ void ModuleAudio::beginSeek() {
  pending_.clear();
  outputDevice_=nullptr;
  effectHistory_.clear();
+ outputPeakLeft_.store(0.0f);
+ outputPeakRight_.store(0.0f);
+ outputClipped_.store(false);
  if(sink_) { sink_->stop(); sink_.reset(); }
  const double current=std::max(0.0,audible.elapsedSeconds);
  seek_(module_,current);
@@ -276,14 +285,12 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
  }
  // Pump and LCD timer run on the main Qt thread. Exchange at each LCD
  // refresh accumulates the largest PCM peak generated during the interval.
- outputPeakLeft_.store(std::max(outputPeakLeft_.load(),peakL));
- outputPeakRight_.store(std::max(outputPeakRight_.load(),peakR));
- if(clipped) outputClipped_.store(true);
  const quint64 firstFrame=decodedFrames_.fetch_add(produced);
  // Capture the actual decoder state for each generated PCM block. The state
  // reflects the END of this block; we associate it with the block's first
  // frame, which keeps the visual approximation within one 1024-frame chunk.
- if(produced>0) effectHistory_.enqueue({firstFrame,decoderSnapshot()});
+ if(produced>0) effectHistory_.enqueue(
+     {firstFrame,decoderSnapshot(),peakL,peakR,clipped});
  quint64 audible = 0;
  const auto* samples = reinterpret_cast<const int16_t*>(data);
  for (size_t i = 0; i < produced * 2; ++i) {
@@ -300,8 +307,20 @@ EffectSnapshot ModuleAudio::effectsSnapshot() {
  if (sink_ && playing_ && !effectHistory_.isEmpty()) {
    const qint64 us=std::max<qint64>(0,sink_->processedUSecs());
    const quint64 played=static_cast<quint64>(us)*48000ULL/1000000ULL;
-   while (!effectHistory_.isEmpty() && effectHistory_.head().frame<=played)
-     presentedEffects_=effectHistory_.dequeue().state;
+   // Present both the tracker state and the post-PREAMP PCM peaks only
+   // after their corresponding audio frames reach the sink clock.
+   float audibleLeft=0.0f,audibleRight=0.0f;
+   bool audibleClip=false;
+   while (!effectHistory_.isEmpty() && effectHistory_.head().frame<=played) {
+     const TimedEffects frame=effectHistory_.dequeue();
+     presentedEffects_=frame.state;
+     audibleLeft=std::max(audibleLeft,frame.peakLeft);
+     audibleRight=std::max(audibleRight,frame.peakRight);
+     audibleClip=audibleClip || frame.clipped;
+   }
+   outputPeakLeft_.store(audibleLeft);
+   outputPeakRight_.store(audibleRight);
+   outputClipped_.store(audibleClip);
    return presentedEffects_;
  }
  if (sink_ && playing_) return presentedEffects_;
