@@ -16,6 +16,8 @@ struct EffectSnapshot {
  int bpm = 0;
  int pattern = 0;
  int row = 0;
+ int order = 0;
+ int orderCount = 0;
  double elapsedSeconds = 0.0;
  QVector<int> usedCommands;
  QVector<int> currentCommands;
@@ -80,7 +82,8 @@ private:
  using IndexedNameFn = const char*(*)(void*,int32_t);
  using OrderPatternFn = int32_t(*)(void*,int32_t);
  IntFn numChannels_=nullptr, numPatterns_=nullptr, currentSpeed_=nullptr,
-       currentTempo_=nullptr, currentPattern_=nullptr, currentRow_=nullptr;
+       currentTempo_=nullptr, currentPattern_=nullptr, currentRow_=nullptr,
+       currentOrder_=nullptr;
  PatternRowsFn patternRows_=nullptr;
  PatternCommandFn patternCommand_=nullptr;
  VuFn vuLeft_=nullptr, vuRight_=nullptr;
