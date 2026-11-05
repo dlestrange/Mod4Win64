@@ -221,6 +221,20 @@ void ClassicDisplay::setPlaybackCounters(double seconds,int songIndex,
     orderTotal_=orderTotal;
     if(changed) update();
 }
+void ClassicDisplay::setPlaybackModes(bool shuffle,int repeatMode,
+                                      bool introScan,bool remaining) {
+    if(shuffle_==shuffle && repeatMode_==repeatMode &&
+       introScan_==introScan && remaining_==remaining) return;
+    shuffle_=shuffle;
+    repeatMode_=repeatMode;
+    introScan_=introScan;
+    remaining_=remaining;
+    update();
+}
+void ClassicDisplay::setModuleDuration(double seconds) {
+    moduleDuration_=std::max(0.0,seconds);
+    update();
+}
 void ClassicDisplay::paintEvent(QPaintEvent*) {
     QImage canvas(W,H,QImage::Format_ARGB32_Premultiplied);
     canvas.fill(QColor("#c0c0c0"));
@@ -268,10 +282,10 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
         p.setPen(enabled?lit:QColor("#246b2a"));
         p.drawText(QRect(352,y,53,12),Qt::AlignLeft|Qt::AlignVCenter,name);
     };
-    modeLabel(47,"Shuffle",false);
-    modeLabel(60,"Repeat",false);
-    modeLabel(73,"Introscan",false);
-    p.setPen(QColor("#103718"));
+    modeLabel(47,"Shuffle",shuffle_);
+    modeLabel(60,"Repeat",repeatMode_!=0);
+    modeLabel(73,"Introscan",introScan_);
+    p.setPen(repeatMode_==2?lit:QColor("#103718"));
     p.drawText(396,72,"1");
     p.setPen(lit);
     // Live numeric displays share the same audible-time snapshot as Effects.
@@ -280,11 +294,15 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     const auto twoDigits=[](int value)->QString {
         return QString::number(std::clamp(value,0,99)).rightJustified(2,QLatin1Char('0'));
     };
-    const int elapsed=std::max(0,int(elapsedSeconds_));
-    digits(p,12,64,twoDigits(elapsed/60),2);
+    const double displaySeconds=remaining_ && moduleDuration_>0.0
+        ?std::max(0.0,moduleDuration_-elapsedSeconds_):elapsedSeconds_;
+    // The remaining-time view counts down without the original extra
+    // minus-only segment, per the requested Mod4Win64 simplification.
+    const int displayTime=std::max(0,int(displaySeconds));
+    digits(p,12,64,twoDigits(displayTime/60),2);
     p.fillRect(46,75,2,2,lit);
     p.fillRect(46,84,2,2,lit);
-    digits(p,57,64,twoDigits(elapsed%60),2);
+    digits(p,57,64,twoDigits(displayTime%60),2);
     digits(p,131,64,twoDigits(songIndex_),2);
     p.drawText(169,84,"of");
     digits(p,188,64,twoDigits(songTotal_),2);
