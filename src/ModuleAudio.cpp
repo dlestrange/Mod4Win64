@@ -153,6 +153,10 @@ void ModuleAudio::pumpAudio() {
    available -= static_cast<int>(written);
  }
 }
+void ModuleAudio::setPreampDb(int decibels) {
+ // Constrain externally supplied values to the physical slider's range.
+ preampDb_.store(std::clamp(decibels,-20,20));
+}
 void ModuleAudio::restart() {
  if (!module_) return;
  stop();
@@ -236,6 +240,23 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
    // Stop the finished module BEFORE notifying the player. Otherwise a
    // listener loading the next song would be stopped by this callback.
    QMetaObject::invokeMethod(this,[this] { stop(); emit endOfModule(); },Qt::QueuedConnection);
+ }
+ // Apply actual PREAMP gain to the stereo 16-bit PCM before Qt buffers it.
+ // dB means amplitude ratio 10^(dB/20), not a linear percentage.
+ // Smooth transitions to prevent zipper/click noise while dragging.
+ // Clamping protects the output from integer overflow; strong positive gain
+ // can still audibly clip (as it does in real digital preamplifiers).
+ const double targetGain=std::pow(10.0,preampDb_.load()/20.0);
+ auto* pcm=reinterpret_cast<int16_t*>(data);
+ if(targetGain!=1.0 || std::abs(currentGain_-1.0)>0.00001) {
+   for(size_t frame=0;frame<produced;++frame) {
+     currentGain_+=(targetGain-currentGain_)*0.002;
+     for(int channel=0;channel<2;++channel) {
+       const size_t offset=frame*2+channel;
+       const long scaled=std::lround(double(pcm[offset])*currentGain_);
+       pcm[offset]=static_cast<int16_t>(std::clamp(scaled,-32768L,32767L));
+     }
+   }
  }
  const quint64 firstFrame=decodedFrames_.fetch_add(produced);
  // Capture the actual decoder state for each generated PCM block. The state
