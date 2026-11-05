@@ -17,10 +17,13 @@ public:
                              int orderIndex, int orderTotal);
     void setPlaybackModes(bool shuffle, int repeatMode, bool introScan, bool remaining);
     void setModuleDuration(double seconds);
+    void setOutputMode(int mode);
+    void setAudioOutputStatus(int channels,int bpm,float left,float right,bool clipping);
     QSize sizeHint() const override { return {626, 96}; }
 signals:
     void titleMatrixClicked(const QPoint& globalPosition);
     void preampGainChanged(int decibels);
+    void outputModeRequested(int mode);
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -34,6 +37,12 @@ private:
     bool draggingPreamp_ = false;
     void setPreampFromY(qreal widgetY);
     QString state_ = "STOPPED";
+    int outputMode_ = 1;
+    int audioChannels_ = 0;
+    int audioBpm_ = 0;
+    float outputLevelLeft_ = 0.0f;
+    float outputLevelRight_ = 0.0f;
+    bool audioClipped_ = false;
     double elapsedSeconds_ = 0.0;
     double moduleDuration_ = 0.0;
     bool shuffle_ = false;
