@@ -16,6 +16,7 @@
 #include <QGuiApplication>
 #include <QRandomGenerator>
 #include <QScrollBar>
+#include <QSettings>
 #include <numeric>
 #include <algorithm>
 #include <QFileDialog>
@@ -560,6 +561,21 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
     // Default 0 dB maps to unity gain (no change to the sound).
     connect(display_, &ClassicDisplay::preampGainChanged,
             audio_, &ModuleAudio::setPreampDb);
+    // The full audio-status panel cycles Mono -> Stereo -> Surround.
+    // Keep the selection across launches; it is a real DSP mode, not
+    // just a visual indicator. Surround is widened 2-channel stereo.
+    const int savedOutputMode=std::clamp(
+        QSettings("Mod4Win64","Mod4Win64")
+            .value("audio/outputMode",1).toInt(),0,2);
+    audio_->setOutputMode(savedOutputMode);
+    display_->setOutputMode(savedOutputMode);
+    connect(display_,&ClassicDisplay::outputModeRequested,this,
+        [this](int mode) {
+            audio_->setOutputMode(mode);
+            display_->setOutputMode(mode);
+            QSettings("Mod4Win64","Mod4Win64")
+                .setValue("audio/outputMode",mode);
+        });
 
     // One compact control strip. The transport keys occupy the full height
     // of the two-row command bank: no staggered vertical alignment or
@@ -742,6 +758,9 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
             if(!advancePlaylist(1,repeatMode_==1)) audio_->stop();
             return;
         }
+        display_->setAudioOutputStatus(snapshot.channels,snapshot.bpm,
+            audio_->takeOutputPeakLeft(),audio_->takeOutputPeakRight(),
+            audio_->takeOutputClip());
         display_->setPlaybackCounters(snapshot.elapsedSeconds,
             lcdSongIndex_,lcdSongTotal_,
             snapshot.moduleIdentity.isEmpty()?0:snapshot.order+1,
