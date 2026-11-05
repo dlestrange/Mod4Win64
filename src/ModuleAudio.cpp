@@ -2,6 +2,8 @@
 #include <QAudioFormat>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
+#include <QCoreApplication>
 #include <QMediaDevices>
 #include <QMetaObject>
 #include <cstring>
@@ -28,10 +30,33 @@ bool ModuleAudio::load(const QString& path, QString* message) {
  stop();
  if (module_) { destroy_(module_); module_=nullptr; }
  if (!library_.isLoaded()) {
-   // libopenmpt.dll needs to be in the executable folder or Windows DLL search path.
-   library_.setFileName("libopenmpt");
-   if (!library_.load()) {
-     if (message) *message="libopenmpt.dll not found. Place the official x64 DLL and dependencies beside Mod4Win64.exe. "+library_.errorString();
+#ifdef Q_OS_MACOS
+   // macOS searches the executable directory and the .app's Frameworks
+   // directory for our Apple Silicon dylib before system library locations.
+   const QString appDir=QCoreApplication::applicationDirPath();
+   const QStringList libraries={
+       QDir(appDir).filePath("../Frameworks/libopenmpt.dylib"),
+       QDir(appDir).filePath("libopenmpt.dylib"),
+       QStringLiteral("openmpt")
+   };
+#else
+   const QStringList libraries={QStringLiteral("libopenmpt")};
+#endif
+   QString errors;
+   for(const QString& candidate:libraries) {
+       library_.setFileName(candidate);
+       if(library_.load()) break;
+       errors+=candidate+": "+library_.errorString()+"\\n";
+   }
+   if(!library_.isLoaded()) {
+#ifdef Q_OS_MACOS
+     if(message) *message="libopenmpt.dylib was not found or could not load. "
+         "Install the Apple Silicon libopenmpt library or place it in "
+         "Mod4Mac64.app/Contents/Frameworks.\\n"+errors;
+#else
+     if(message) *message="libopenmpt.dll could not load. Place the matching x64 DLL "
+         "and its companion libraries beside Mod4Win64.exe.\\n"+errors;
+#endif
      return false;
    }
    create_=reinterpret_cast<CreateFn>(library_.resolve("openmpt_module_create_from_memory2"));
