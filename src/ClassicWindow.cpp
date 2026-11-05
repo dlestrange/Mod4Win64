@@ -759,12 +759,16 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
             if(index==oldIndex) list->setCurrentItem(item);
         }
         if(list->count() && !list->currentItem()) list->setCurrentRow(0);
+        if(list->currentItem()) list->scrollToItem(list->currentItem());
+        list->viewport()->update();
     };
     populate(0);
-    // One mutually exclusive sort mode. Only the view order changes:
-    // original queue positions remain attached to each displayed item.
-    connect(sortGroup,&QButtonGroup::idClicked,popup,
-            [populate](int mode) { populate(mode); });
+    // Wire each button directly to rebuilding the visible list. This also
+    // makes the behaviour independent of a button-group signal overload.
+    // The button group itself controls only the checked/highlight state.
+    connect(none,&QPushButton::clicked,popup,[populate] { populate(0); });
+    connect(name,&QPushButton::clicked,popup,[populate] { populate(1); });
+    connect(ext,&QPushButton::clicked,popup,[populate] { populate(2); });
     connect(list,&QListWidget::itemDoubleClicked,popup,
         [this,popup,queue](QListWidgetItem* item) {
             const int index=item->data(Qt::UserRole).toInt();
