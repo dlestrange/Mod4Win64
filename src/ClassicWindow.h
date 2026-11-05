@@ -40,6 +40,7 @@ public:
     explicit ClassicPlayer(QWidget* parent = nullptr);
 private:
     void chooseTrack(const QString& path);
+    void stepPlaylist(int direction);
     void setPanelVisible(QWidget* panel);
     QLabel* title_ = nullptr;
     QLabel* song_ = nullptr;
@@ -70,4 +71,6 @@ private:
     QPushButton* playButton_ = nullptr;
     QPushButton* pauseButton_ = nullptr;
     QPushButton* stopButton_ = nullptr;
+    QTimer* seekTimer_ = nullptr;
+    int seekDirection_ = 0;
 };
