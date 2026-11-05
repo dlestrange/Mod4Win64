@@ -199,6 +199,20 @@ void ClassicDisplay::setState(const QString& state) { state_=state; update(); }
 void ClassicDisplay::setDiagnostics(quint64 frames,quint64 nonzero) {
     frames_=frames; nonzero_=nonzero; update();
 }
+void ClassicDisplay::setPlaybackCounters(double seconds,int songIndex,
+                                         int songTotal,int orderIndex,int orderTotal) {
+    // Redraw only when the visible whole-second or sequence numbers change.
+    const int oldSecond=int(std::max(0.0,elapsedSeconds_));
+    const int newSecond=int(std::max(0.0,seconds));
+    const bool changed=oldSecond!=newSecond || songIndex_!=songIndex ||
+        songTotal_!=songTotal || orderIndex_!=orderIndex || orderTotal_!=orderTotal;
+    elapsedSeconds_=seconds;
+    songIndex_=songIndex;
+    songTotal_=songTotal;
+    orderIndex_=orderIndex;
+    orderTotal_=orderTotal;
+    if(changed) update();
+}
 void ClassicDisplay::paintEvent(QPaintEvent*) {
     QImage canvas(W,H,QImage::Format_ARGB32_Premultiplied);
     canvas.fill(QColor("#c0c0c0"));
@@ -252,18 +266,23 @@ void ClassicDisplay::paintEvent(QPaintEvent*) {
     p.setPen(QColor("#103718"));
     p.drawText(396,72,"1");
     p.setPen(lit);
-    // All-segment ghost numerals. Live timing and song navigation will be
-    // wired to the already synchronised audio clock in a subsequent release.
-    digits(p,12,64,"--",2);
+    // Live numeric displays share the same audible-time snapshot as Effects.
+    // The LCD has two physical seven-segment digits per field. Clamp rather
+    // than truncate so a long sequence cannot misleadingly wrap to zero.
+    const auto twoDigits=[](int value)->QString {
+        return QString::number(std::clamp(value,0,99)).rightJustified(2,QLatin1Char('0'));
+    };
+    const int elapsed=std::max(0,int(elapsedSeconds_));
+    digits(p,12,64,twoDigits(elapsed/60),2);
     p.fillRect(46,75,2,2,lit);
     p.fillRect(46,84,2,2,lit);
-    digits(p,57,64,"--",2);
-    digits(p,131,64,"--",2);
+    digits(p,57,64,twoDigits(elapsed%60),2);
+    digits(p,131,64,twoDigits(songIndex_),2);
     p.drawText(169,84,"of");
-    digits(p,188,64,"--",2);
-    digits(p,264,64,"--",2);
+    digits(p,188,64,twoDigits(songTotal_),2);
+    digits(p,264,64,twoDigits(orderIndex_),2);
     p.drawText(299,84,"of");
-    digits(p,316,64,"--",2);
+    digits(p,316,64,twoDigits(orderTotal_),2);
 
     p.drawText(424,18,"48kHz 16Bit");
     p.drawText(424,35,"STEREO");
