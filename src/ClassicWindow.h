@@ -41,6 +41,7 @@ public:
 private:
     void chooseTrack(const QString& path);
     void stepPlaylist(int direction);
+    void showQuickPlaylist(const QPoint& globalPosition);
     void setPanelVisible(QWidget* panel);
     QLabel* title_ = nullptr;
     QLabel* song_ = nullptr;
