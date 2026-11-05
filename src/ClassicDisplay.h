@@ -1,10 +1,14 @@
 #pragma once
 #include <QWidget>
 #include <QString>
+class QPainter;
+class QRect;
 class ClassicDisplay final : public QWidget {
     Q_OBJECT
 public:
     explicit ClassicDisplay(QWidget* parent = nullptr);
+    // Share the exact main LCD 5x7 pixel renderer with other panels.
+    static void paintDotMatrix(QPainter& painter, const QRect& area, const QString& title);
     void setTitle(const QString& title);
     void setModuleNames(const QString& title, const QString& filename);
     void setState(const QString& state);
