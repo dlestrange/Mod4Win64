@@ -752,9 +752,31 @@ ClassicPlayer::ClassicPlayer(QWidget* parent) : QWidget(parent) {
         remainingTime_=checked;
         syncModeDisplay();
     });
+    connect(jukebox_,&JukeboxWindow::queueEntryRemoved,this,
+        [this](int removedIndex) {
+            // The loaded audio keeps playing independently of its place in
+            // the playlist. A removed currently playing occurrence is no
+            // longer assigned a queue index (LCD Song=00).
+            const int oldIndex=lcdSongIndex_-1;
+            if(lcdSongIndex_>0) {
+                if(removedIndex==oldIndex) lcdSongIndex_=0;
+                else if(removedIndex<oldIndex) --lcdSongIndex_;
+            }
+            refreshPlaylistCounters();
+        });
+    connect(jukebox_,&JukeboxWindow::queueReordered,this,
+        [this](const QVector<int>& newToOld) {
+            const int oldIndex=lcdSongIndex_-1;
+            if(lcdSongIndex_>0) {
+                const int newIndex=newToOld.indexOf(oldIndex);
+                lcdSongIndex_=newIndex<0?0:newIndex+1;
+            }
+            refreshPlaylistCounters();
+        });
     connect(jukebox_,&JukeboxWindow::queueUpdated,this,[this](int count) {
         lcdSongTotal_=count;
         rebuildPlayOrder();
+        refreshPlaylistCounters();
     });
     connect(audio_,&ModuleAudio::endOfModule,this,&ClassicPlayer::handleModuleEnd);
     connect(jukebox_, &JukeboxWindow::trackChosen, this, &ClassicPlayer::chooseTrack);
@@ -982,6 +1004,13 @@ void ClassicPlayer::showQuickPlaylist(const QPoint& globalPosition) {
     list->setFocus();
 }
 
+void ClassicPlayer::refreshPlaylistCounters() {
+    const EffectSnapshot snapshot=audio_->effectsSnapshot();
+    display_->setPlaybackCounters(snapshot.elapsedSeconds,
+        lcdSongIndex_,jukebox_->tracks().size(),
+        snapshot.moduleIdentity.isEmpty()?0:snapshot.order+1,
+        snapshot.orderCount);
+}
 void ClassicPlayer::syncModeDisplay() {
     display_->setPlaybackModes(shuffleEnabled_,repeatMode_,
                                introscanEnabled_,remainingTime_);
@@ -1006,8 +1035,10 @@ bool ClassicPlayer::advancePlaylist(int direction,bool wrap) {
     if(playlist.isEmpty()) return false;
     if(playOrder_.size()!=playlist.size()) rebuildPlayOrder();
     const int currentPos=playOrder_.indexOf(lcdSongIndex_-1);
-    if(currentPos<0) return false;
-    int nextPos=currentPos+direction;
+    // If the currently playing module was removed from the playlist,
+    // next/previous choose the first/last available queued module.
+    int nextPos=currentPos<0?(direction>0?0:playOrder_.size()-1)
+        :currentPos+direction;
     if(nextPos<0 || nextPos>=playOrder_.size()) {
         if(!wrap) return false;
         nextPos=nextPos<0?playOrder_.size()-1:0;
