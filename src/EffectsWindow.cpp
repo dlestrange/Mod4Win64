@@ -8,8 +8,17 @@
 #include <QSettings>
 
 EffectsWindow::EffectsWindow(QWidget* parent) : QDialog(parent) {
+#ifdef Q_OS_MACOS
+    setWindowTitle("Mod4Mac64 2026 Beta - Effects");
+    // Qt::Tool maps to a floating macOS utility panel. macOS can hide that
+    // panel as soon as its application/window loses the relevant activation.
+    // Use a regular top-level window so the live Effects panel stays visible
+    // when focus moves to the main player or another application.
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+#else
     setWindowTitle("Mod4Win64 2026 Beta - Effects");
     setWindowFlags(Qt::Tool | Qt::FramelessWindowHint);
+#endif
     setModal(false);
     setStyleSheet("EffectsWindow { background:#c0c0c0; }");
     auto* layout = new QVBoxLayout(this);
