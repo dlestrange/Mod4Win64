@@ -291,7 +291,7 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     connect(removeAll, &QPushButton::clicked, this, [this] {
         if(queue_->count()==0) return;
         const auto result=QMessageBox::question(this, "Clear playlist",
-            QString("Remove all %1 entries from the playlist?\\n"
+            QString("Remove all %1 entries from the playlist?\n"
                     "No actual module files will be deleted.").arg(queue_->count()),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if(result==QMessageBox::Yes) clearQueue();
@@ -340,9 +340,9 @@ JukeboxWindow::JukeboxWindow(QWidget* parent) : QDialog(parent) {
     connect(quit, &QPushButton::clicked, this, &QWidget::hide);
     connect(help, &QPushButton::clicked, this, [this] {
         QMessageBox::information(this, "Jukebox Help",
-            "Double-click a Filelist entry to add it to the playlist.\\n"
-            "Double-click a Playlist entry to remove it; OK starts the selected module.\\n"
-            "Remove All empties the playlist but never deletes the files.\\n"
+            "Double-click a Filelist entry to add it to the playlist.\n"
+            "Double-click a Playlist entry to remove it; OK starts the selected module.\n"
+            "Remove All empties the playlist but never deletes the files.\n"
             "The playlist saves automatically. Save exports a standard M3U file.");
     });
 
