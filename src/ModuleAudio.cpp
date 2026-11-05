@@ -37,6 +37,8 @@ bool ModuleAudio::load(const QString& path, QString* message) {
    const QStringList libraries={
        QDir(appDir).filePath("../Frameworks/libopenmpt.dylib"),
        QDir(appDir).filePath("libopenmpt.dylib"),
+       QStringLiteral("/opt/homebrew/lib/libopenmpt.dylib"),
+       QStringLiteral("/usr/local/lib/libopenmpt.dylib"),
        QStringLiteral("openmpt")
    };
 #else
