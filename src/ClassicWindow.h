@@ -46,6 +46,8 @@ private:
     QLabel* pattern_ = nullptr;
     QLabel* status_ = nullptr;
     ClassicDisplay* display_ = nullptr;
+    int lcdSongIndex_ = 0; // 1-based selected playlist entry
+    int lcdSongTotal_ = 0;
     JukeboxWindow* jukebox_ = nullptr;
     QDialog* info_ = nullptr;
     QLabel* infoTitle_ = nullptr;
