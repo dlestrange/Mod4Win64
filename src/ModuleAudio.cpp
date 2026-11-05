@@ -220,6 +220,11 @@ void ModuleAudio::endSeek() {
      emit stateChanged("READY");
  }
 }
+double ModuleAudio::durationSeconds() const {
+    if(!module_ || !duration_) return 0.0;
+    const double seconds=duration_(module_);
+    return std::isfinite(seconds) && seconds>0.0?seconds:0.0;
+}
 bool ModuleAudio::isPlaying() const { return playing_; }
 bool ModuleAudio::isPaused() const { return paused_; }
 qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
@@ -228,7 +233,9 @@ qint64 ModuleAudio::readData(char* data,qint64 maxlen) {
  const auto produced=read_(module_,48000,frames,reinterpret_cast<int16_t*>(data));
  if(produced==0 && !finished_) {
    finished_=true;
-   QMetaObject::invokeMethod(this,[this] { emit endOfModule(); stop(); },Qt::QueuedConnection);
+   // Stop the finished module BEFORE notifying the player. Otherwise a
+   // listener loading the next song would be stopped by this callback.
+   QMetaObject::invokeMethod(this,[this] { stop(); emit endOfModule(); },Qt::QueuedConnection);
  }
  const quint64 firstFrame=decodedFrames_.fetch_add(produced);
  // Capture the actual decoder state for each generated PCM block. The state
