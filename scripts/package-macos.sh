@@ -27,6 +27,19 @@ rm -rf "$APP"
 rm -f "$ZIP"
 ditto "$SOURCE_APP" "$APP"
 "$QT_DIR/bin/macdeployqt" "$APP" -no-strip
+# Mod4Mac64 uses QAudioSink/QMediaDevices and dynamically loaded libopenmpt,
+# not Qt's media-player/recording backend. Qt's deployment tool includes the
+# unused FFmpeg plugin and shared libraries; omit them from this test package.
+# Revalidate audio, module playback, and portability after this change.
+echo "Removing unused Qt FFmpeg media backend from test package..."
+rm -f "$APP/Contents/PlugIns/multimedia/libffmpegmediaplugin.dylib"
+for ffmpeg_lib in libavcodec.*.dylib libavformat.*.dylib libavutil.*.dylib libswresample.*.dylib libswscale.*.dylib; do
+    rm -f "$APP/Contents/Frameworks/"/$ffmpeg_lib
+done
+if find "$APP/Contents" -type f \\( -name 'libffmpegmediaplugin.dylib' -o -name 'libavcodec.*.dylib' -o -name 'libavformat.*.dylib' -o -name 'libavutil.*.dylib' -o -name 'libswresample.*.dylib' -o -name 'libswscale.*.dylib' \\) | grep -q .; then
+    echo "FFmpeg binaries remain in package; aborting." >&2
+    exit 1
+fi
 mkdir -p "$APP/Contents/Frameworks"
 cp -L "$OPENMPT" "$APP/Contents/Frameworks/libopenmpt.dylib"
 dylibbundler -b -x "$APP/Contents/Frameworks/libopenmpt.dylib" \
