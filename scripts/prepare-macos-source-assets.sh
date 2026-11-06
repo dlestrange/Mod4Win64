@@ -6,20 +6,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIR="$ROOT/dist/macos-source-assets"
 mkdir -p "$DIR"
 fetch() {
-    local url="$1" file="$2" md5="$3" out="$DIR/$file"
-    if [[ -s "$out" ]] && echo "$md5  $out" | md5sum -c >/dev/null 2>&1; then
-        echo "Verified existing $file"
-        return
-    fi
-    # macOS ships md5 rather than md5sum.
-    if [[ -s "$out" ]] && [[ "$(md5 -q "$out")" == "$md5" ]]; then
+    local url="$1" file="$2" expected_md5="$3"
+    local out="$DIR/$file"
+    # macOS ships md5 rather than GNU md5sum.
+    if [[ -s "$out" ]] && [[ "$(md5 -q "$out")" == "$expected_md5" ]]; then
         echo "Verified existing $file"
         return
     fi
     echo "Downloading $file (may be large; resume supported)..."
     curl --fail --location --show-error --retry 2 --connect-timeout 15 \
         --continue-at - "$url" -o "$out"
-    if [[ "$(md5 -q "$out")" != "$md5" ]]; then
+    if [[ "$(md5 -q "$out")" != "$expected_md5" ]]; then
         echo "Checksum mismatch: $file; do NOT distribute" >&2
         exit 1
     fi
