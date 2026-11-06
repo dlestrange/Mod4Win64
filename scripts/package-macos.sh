@@ -27,7 +27,7 @@ if [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
     LICENSE_INPUT="${LICENSE_INPUT:-$ROOT/dist/compliance-macos}"
     required=(LGPL-3.0.txt GPL-3.0.txt LGPL-2.1.txt
               Qt-Third-Party-Notices.txt libopenmpt-LICENSE.txt
-              libogg-LICENSE.txt libvorbis-LICENSE.txt
+              libogg-LICENSE.txt libvorbis-LICENSE.txt mpg123-LICENSE.txt
               SOURCE-AND-REPLACEMENT-INSTRUCTIONS.txt)
     for name in "${required[@]}"; do
         [[ -s "$LICENSE_INPUT/$name" ]] || {
@@ -100,7 +100,7 @@ if [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
     LICENSE_INPUT="${LICENSE_INPUT:-$ROOT/dist/compliance-macos}"
     required=(LGPL-3.0.txt GPL-3.0.txt LGPL-2.1.txt
               Qt-Third-Party-Notices.txt libopenmpt-LICENSE.txt
-              libogg-LICENSE.txt libvorbis-LICENSE.txt
+              libogg-LICENSE.txt libvorbis-LICENSE.txt mpg123-LICENSE.txt
               SOURCE-AND-REPLACEMENT-INSTRUCTIONS.txt)
     for name in "${required[@]}"; do
         [[ -s "$LICENSE_INPUT/$name" ]] || {
