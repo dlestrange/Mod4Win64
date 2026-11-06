@@ -34,6 +34,7 @@ copy_licence() {
 }
 missing=0
 copy_licence libopenmpt libopenmpt-LICENSE.txt || missing=1
+copy_licence mpg123 mpg123-LICENSE.txt || missing=1
 copy_licence libogg libogg-LICENSE.txt || missing=1
 copy_licence libvorbis libvorbis-LICENSE.txt || missing=1
 
