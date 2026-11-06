@@ -77,6 +77,24 @@ codesign --force --deep --sign - "$APP"
 mkdir -p "$APP/Contents/Resources/Licenses"
 cp "$ROOT/docs/MACOS-THIRD-PARTY-NOTICES.txt" \
    "$APP/Contents/Resources/Licenses/THIRD-PARTY-NOTICES.txt"
+# For public release, require the maintainer to supply VERIFIED complete licence
+# texts and the corresponding source/replacement instructions. These cannot
+# safely be inferred from installed Homebrew formula metadata.
+if [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
+    LICENSE_INPUT="${LICENSE_INPUT:-$ROOT/dist/compliance-macos}"
+    required=(LGPL-3.0.txt GPL-3.0.txt LGPL-2.1.txt
+              Qt-Third-Party-Notices.txt libopenmpt-LICENSE.txt
+              libogg-LICENSE.txt libvorbis-LICENSE.txt
+              SOURCE-AND-REPLACEMENT-INSTRUCTIONS.txt)
+    for name in "${required[@]}"; do
+        [[ -s "$LICENSE_INPUT/$name" ]] || {
+            echo "Public release blocked: missing $LICENSE_INPUT/$name" >&2
+            exit 1
+        }
+    done
+    cp "$LICENSE_INPUT/"*.txt "$APP/Contents/Resources/Licenses/"
+    echo "Required compliance input files copied; verify accuracy and source availability separately."
+fi
 # Re-sign after changing bundle resources; retain local-test-only ad-hoc status.
 codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
