@@ -22,6 +22,22 @@ done
 OPENMPT="$(brew --prefix libopenmpt)/lib/libopenmpt.dylib"
 [[ -f "$OPENMPT" ]] || { echo "Missing libopenmpt at $OPENMPT" >&2; exit 1; }
 
+# Fail before expensive deployment when public-release materials are missing.
+if [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
+    LICENSE_INPUT="${LICENSE_INPUT:-$ROOT/dist/compliance-macos}"
+    required=(LGPL-3.0.txt GPL-3.0.txt LGPL-2.1.txt
+              Qt-Third-Party-Notices.txt libopenmpt-LICENSE.txt
+              libogg-LICENSE.txt libvorbis-LICENSE.txt
+              SOURCE-AND-REPLACEMENT-INSTRUCTIONS.txt)
+    for name in "${required[@]}"; do
+        [[ -s "$LICENSE_INPUT/$name" ]] || {
+            echo "Public release blocked: missing $LICENSE_INPUT/$name" >&2
+            echo "Run bash scripts/prepare-macos-compliance.sh, then complete manual checks." >&2
+            exit 1
+        }
+    done
+fi
+
 mkdir -p "$DIST_DIR"
 rm -rf "$APP"
 rm -f "$ZIP"
