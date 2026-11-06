@@ -1,0 +1,60 @@
+Mod4Mac64 v0.9.0 Beta 1 — Third-party software notices
+==========================================================
+
+This software is an independent revival of the classic Mod4Win. The
+application's own code is distributed under the MIT license (see the
+repository's LICENSE). The original Mod4Win developers are Kay Bruns,
+Uwe Zaenker and Jens Puchert.
+
+This package uses independently licensed components. Their copyrights,
+license texts and corresponding source obligations are separate from
+the application's MIT license. None of these projects endorses Mod4Mac64.
+
+Qt 6.12.0 — Qt Core, GUI, Widgets, Multimedia, Network, and related Qt
+platform, style, image, icon and TLS plugins/frameworks.
+  Copyright: The Qt Company and other Qt contributors.
+  License: Qt open-source library components are principally LGPL-3.0,
+  with module-specific alternative licenses and third-party exceptions.
+  The full LGPLv3 and GPLv3 terms should accompany this release.
+  Official licensing: https://doc.qt.io/qt-6.12/licensing.html
+  Third-party attribution index:
+  https://doc.qt.io/qt-6/licenses-used-in-qt.html
+  Qt source: https://download.qt.io/official_releases/qt/6.12/6.12.0/
+  Rights: Recipients must be able to replace/modify LGPL libraries and
+  exercise all applicable LGPL rights.
+
+libopenmpt — tracker module decoding library
+  Copyright: OpenMPT contributors (see upstream LICENSE).
+  License: BSD-3-Clause.
+  Project: https://lib.openmpt.org/
+  Source: https://github.com/OpenMPT/openmpt
+
+libmpg123 — MPEG audio decoder
+  Copyright: mpg123 contributors (see upstream source notices).
+  License: LGPL-2.1.
+  Project and source: https://www.mpg123.org/
+
+libogg — Ogg bitstream library
+  Copyright: Xiph.Org Foundation and contributors.
+  License: BSD-style license; use upstream COPYING for the specific build.
+  Source: https://github.com/xiph/ogg
+
+libvorbis and libvorbisfile — Vorbis codec libraries
+  Copyright: Xiph.Org Foundation and contributors.
+  License: BSD-3-Clause; see upstream COPYING.
+  Source: https://github.com/xiph/vorbis
+
+FFmpeg: the Qt FFmpeg media plugin and its libav* / libsw* libraries
+were excluded from the revised Mac beta test package. This statement
+must be rechecked against the final ZIP, including non-obvious binaries.
+
+IMPORTANT: This acknowledgement file alone does NOT satisfy all the
+applicable license obligations. For public redistribution, also
+include the complete relevant license texts, Qt's embedded third-party
+attributions for the actual shipped binaries, corresponding source
+and/or a compliant source offer under the distributor's control,
+and suitable replacement/relinking instructions for LGPL components.
+
+This document describes the identified components, not a final legal
+attestation. Keep the public prerelease in draft until those checks
+are complete.
