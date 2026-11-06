@@ -72,6 +72,13 @@ fi
 # Ad-hoc signing is for local/limited technical testing only. It does NOT
 # produce a notarised, normal-Gatekeeper-friendly public distribution.
 codesign --force --deep --sign - "$APP"
+# Keep an explicit component notice within the downloadable app, not only
+# in the repository or GitHub release description.
+mkdir -p "$APP/Contents/Resources/Licenses"
+cp "$ROOT/docs/MACOS-THIRD-PARTY-NOTICES.txt" \
+   "$APP/Contents/Resources/Licenses/THIRD-PARTY-NOTICES.txt"
+# Re-sign after changing bundle resources; retain local-test-only ad-hoc status.
+codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 shasum -a 256 "$ZIP"
