@@ -14,7 +14,7 @@ APP="$DIST_DIR/$APP_NAME"
 SOURCE_APP="$BUILD_DIR/$APP_NAME"
 ZIP="$DIST_DIR/Mod4Mac64-$VERSION-macos-arm64.zip"
 
-for command in ditto brew dylibbundler otool codesign; do
+for command in ditto brew dylibbundler otool codesign file shasum; do
     command -v "$command" >/dev/null || { echo "Missing $command" >&2; exit 1; }
 done
 [[ -x "$QT_DIR/bin/macdeployqt" ]] || { echo "Missing macdeployqt: $QT_DIR/bin/macdeployqt" >&2; exit 1; }
