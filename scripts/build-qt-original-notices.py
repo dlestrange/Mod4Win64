@@ -5,7 +5,6 @@ Includes originals from qtbase, qtmultimedia, and qtsvg, conservatively,
 rather than trying to assert which implementation details were linked.
 Not legal certification. Requires verified original Qt source extraction.
 """
-import json
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "dist/compliance-macos"
@@ -35,12 +34,9 @@ for module in MODULES:
     parts += ["", f"######## {module}: Qt upstream attribution records ########", ""]
     for f in files:
         data = f.read_text(encoding="utf-8")
-        try:
-            parsed = json.loads(data)
-            if not isinstance(parsed, (dict,list)):
-                raise ValueError("unexpected JSON root")
-        except (ValueError, json.JSONDecodeError) as exc:
-            raise SystemExit(f"Invalid attribution record {f}: {exc}")
+        # Qt attribution files are source evidence, not guaranteed valid
+        # strict JSON. Preserve text exactly instead of parsing/reformatting:
+        # some upstream records contain literal control characters.
         parts += [f"----- BEGIN {f.relative_to(ORIG)} -----", data,
                   f"----- END {f.relative_to(ORIG)} -----", ""]
         attributions += 1
