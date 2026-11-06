@@ -25,6 +25,13 @@ OPENMPT="$(brew --prefix libopenmpt)/lib/libopenmpt.dylib"
 # Fail before expensive deployment when public-release materials are missing.
 if [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
     LICENSE_INPUT="${LICENSE_INPUT:-$ROOT/dist/compliance-macos}"
+    SOURCE_ASSETS="$ROOT/dist/macos-source-assets"
+    for archive in qt-everywhere-src-6.12.0.tar.xz mpg123-1.33.7.tar.bz2 SHA256SUMS.txt; do
+        [[ -s "$SOURCE_ASSETS/$archive" ]] || {
+            echo "Public release blocked: missing corresponding-source asset $SOURCE_ASSETS/$archive" >&2
+            exit 1
+        }
+    done
     required=(LGPL-3.0.txt GPL-3.0.txt LGPL-2.1.txt
               Qt-Third-Party-Notices.txt libopenmpt-LICENSE.txt
               libogg-LICENSE.txt libvorbis-LICENSE.txt mpg123-LICENSE.txt
@@ -93,6 +100,18 @@ codesign --force --deep --sign - "$APP"
 mkdir -p "$APP/Contents/Resources/Licenses"
 cp "$ROOT/docs/MACOS-THIRD-PARTY-NOTICES.txt" \
    "$APP/Contents/Resources/Licenses/THIRD-PARTY-NOTICES.txt"
+# Preserve Qt's original module licence texts and attribution JSON in the
+# downloadable application, rather than relying on a reconstructed summary.
+QT_LICENSE_ORIGINALS="$ROOT/dist/compliance-macos/Qt-6.12.0-Original-Licenses"
+if [[ -d "$QT_LICENSE_ORIGINALS" ]]; then
+    ditto "$QT_LICENSE_ORIGINALS" "$APP/Contents/Resources/Licenses/Qt-6.12.0-Original-Licenses"
+    echo "Bundled original Qt module licences and attribution metadata."
+elif [[ "${PUBLIC_RELEASE:-0}" == "1" ]]; then
+    echo "Public release blocked: original Qt module licences have not been extracted." >&2
+    exit 1
+else
+    echo "Note: original Qt attribution directory missing; test build only." >&2
+fi
 # For public release, require the maintainer to supply VERIFIED complete licence
 # texts and the corresponding source/replacement instructions. These cannot
 # safely be inferred from installed Homebrew formula metadata.
