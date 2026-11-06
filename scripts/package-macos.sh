@@ -32,6 +32,12 @@ cp -L "$OPENMPT" "$APP/Contents/Frameworks/libopenmpt.dylib"
 dylibbundler -b -x "$APP/Contents/Frameworks/libopenmpt.dylib" \
     -d "$APP/Contents/Frameworks" -p "@loader_path/" -s /opt/homebrew/lib
 
+# Homebrew gives libopenmpt an absolute install name. dylibbundler fixes its
+# dependencies, but not necessarily the dylib's own identity, which otool -L
+# also reports. Replace it with a relocatable install name before final signing.
+install_name_tool -id "@rpath/libopenmpt.dylib" \
+    "$APP/Contents/Frameworks/libopenmpt.dylib"
+
 # Audit all bundled Mach-O libraries (including Qt plug-ins) for developer-
 # machine runtime paths. A clean audit is necessary but not sufficient:
 # always test from a fresh user account / another Mac as well.
