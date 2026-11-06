@@ -31,17 +31,17 @@ libopenmpt — tracker module decoding library
 
 libmpg123 — MPEG audio decoder
   Copyright: mpg123 contributors (see upstream source notices).
-  License: LGPL-2.1.
+  License: LGPL-2.1-only (confirmed from Homebrew formula metadata).
   Project and source: https://www.mpg123.org/
 
 libogg — Ogg bitstream library
   Copyright: Xiph.Org Foundation and contributors.
-  License: BSD-style license; use upstream COPYING for the specific build.
+  License: BSD-3-Clause (confirmed from Homebrew formula metadata); retain upstream copyright and license text.
   Source: https://github.com/xiph/ogg
 
 libvorbis and libvorbisfile — Vorbis codec libraries
   Copyright: Xiph.Org Foundation and contributors.
-  License: BSD-3-Clause; see upstream COPYING.
+  License: BSD-3-Clause (confirmed from Homebrew formula metadata); retain upstream copyright and license text.
   Source: https://github.com/xiph/vorbis
 
 FFmpeg: the Qt FFmpeg media plugin and its libav* / libsw* libraries
