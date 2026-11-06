@@ -60,6 +60,16 @@ def main():
                     "libavcodec.dylib","libavformat.dylib","libavutil.dylib"))
                     or "/libavcodec." in n or "/libavformat." in n or "/libswresample." in n or "/libswscale." in n]
             check("No FFmpeg payload",not unwanted,", ".join(unwanted[:3]))
+            # The source guide is regenerated independently of the app ZIP.
+            # Detect stale embedded copies before uploading release assets.
+            source_guide="SOURCE-AND-REPLACEMENT-INSTRUCTIONS.txt"
+            zipped=licences+source_guide
+            local=COMPLIANCE/source_guide
+            if zipped in names and local.is_file():
+                check("Embedded source instructions match local release file",
+                      z.read(zipped)==local.read_bytes())
+            else:
+                check("Embedded source instructions match local release file",False)
     except (zipfile.BadZipFile,OSError) as ex:
         check("ZIP readable",False,str(ex))
     for name in NEEDED_LICENSES:
