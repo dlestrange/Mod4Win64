@@ -36,7 +36,7 @@ rm -f "$APP/Contents/PlugIns/multimedia/libffmpegmediaplugin.dylib"
 for ffmpeg_lib in libavcodec.*.dylib libavformat.*.dylib libavutil.*.dylib libswresample.*.dylib libswscale.*.dylib; do
     rm -f "$APP/Contents/Frameworks/"/$ffmpeg_lib
 done
-if find "$APP/Contents" -type f \\( -name 'libffmpegmediaplugin.dylib' -o -name 'libavcodec.*.dylib' -o -name 'libavformat.*.dylib' -o -name 'libavutil.*.dylib' -o -name 'libswresample.*.dylib' -o -name 'libswscale.*.dylib' \\) | grep -q .; then
+if find "$APP/Contents" -type f \( -name 'libffmpegmediaplugin.dylib' -o -name 'libavcodec.*.dylib' -o -name 'libavformat.*.dylib' -o -name 'libavutil.*.dylib' -o -name 'libswresample.*.dylib' -o -name 'libswscale.*.dylib' \) | grep -q .; then
     echo "FFmpeg binaries remain in package; aborting." >&2
     exit 1
 fi
