@@ -25,7 +25,11 @@ for name in required:
     p=ASSETS/name
     if not p.is_file() or name not in read:
         raise SystemExit(f"Missing source asset/checksum for {name}")
-    h=hashlib.file_digest(p.open("rb"),"sha256").hexdigest()
+    digest=hashlib.sha256()
+    with p.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024*1024), b""):
+            digest.update(chunk)
+    h=digest.hexdigest()
     if h.lower()!=read[name].lower():
         raise SystemExit(f"Checksum mismatch: {name}")
 
